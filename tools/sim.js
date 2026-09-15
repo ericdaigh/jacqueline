@@ -5,7 +5,7 @@ const {chromium}=require('playwright');const path=require('path');
 (async()=>{const b=await chromium.launch({executablePath:process.env.CHROME||'/opt/pw-browsers/chromium',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});const p=await b.newPage({viewport:{width:320,height:200}});
 p.on('pageerror',e=>console.log('ERR:',e.message,(e.stack||'').split('\n').slice(0,3).join(' | ')));
 const seed=process.argv[2]||'willow'; const acts=[]; for(let i=3;i+3<process.argv.length;i+=4){const [d,h,m]=process.argv[i].split(':').map(Number);acts.push({day:d,min:h*60+m,action:process.argv[i+1],prop:process.argv[i+2],who:+process.argv[i+3],done:false});}
-const file=process.env.TEST_HTML||path.join(__dirname,'..','index.html');
+const file=process.env.TEST_HTML||path.join(__dirname,'..','public','index.html');
 await p.goto('file://'+file);await p.waitForTimeout(3000);
 await p.evaluate(s=>{localStorage.clear();window.__ghost.startLeap(s);},seed);await p.waitForTimeout(1500);
 await p.evaluate(()=>{document.getElementById('open').click();});await p.waitForTimeout(400);

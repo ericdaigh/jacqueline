@@ -798,7 +798,7 @@ function storyLetter(lot,K,r){
   W.routine=[{t:'06:30',do:'wake',at:'bedB'},{t:'06:50',do:'sit',at:K.chair2,say:['Morning, Ma.','Paper says cooler.','You going to eat that?']},{t:'07:30',do:'out',dir:1},{t:'17:10',do:'back'},{t:'17:20',do:'sit',at:K.chair2},{t:'18:40',do:'sit',at:K.chair2},{t:'19:20',do:'sit',at:K.sofa,say:['Turn it up, Ma.','Tigers lost.']},{t:'21:30',do:'sleep',at:K.bedB}];
   C.routine=[{t:'06:00',do:'wander',at:'kitchen'},{t:'09:00',do:'wander',at:'living'},{t:'14:00',do:'wander',at:'bedA'},{t:'18:00',do:'wander',at:'kitchen'},{t:'22:00',do:'wander',at:'living'}];
   S.echoes={living:{actors:[{b:M,at:K.picture},{b:W,at:K.sofa}],lines:[{who:son,text:'Who\'s it from?'},{who:mom,text:'Nobody.'},{who:null,text:'She works a thumb under the flap. Stops.'},{who:mom,text:'It can keep.'}],clue:'echo'}};
-  S.props={letter};
+  S.props={letter}; S.replay=(st)=>{ if(st.read){letter.show(true); if(!S.state.rerouted){S.state.rerouted=true;M.routine=M.routine.filter(e=>!(e.t==='16:30'||e.t==='17:00'));M.routine.push({t:'17:05',day:2,do:'stand',at:K.hooks,say:['Coat.','Hat.','Well.']},{t:'17:15',day:2,do:'out',dir:1,hook:'leave'});} } };
   S.onHook=(who,name)=>{if(name==='phone'&&nearGhost(who))addClue('phone'); if(name==='drawer'&&nearGhost(who,6))addClue('drawer');};
   S.onExamine=(who,prop)=>{
     if(prop===K.hallTable||prop===letter){ if(prop===K.hallTable&&letter.hidden){letter.show(true);letter.setPos(K.hallTable.pos.clone().add(new THREE.Vector3(0.1,K.hallTable.size[1],0.05)));}
@@ -841,7 +841,7 @@ function storyGate(lot,K,r){
   B.routine=[{t:'06:00',do:'wander',at:'kitchen'},{t:'07:40',do:'stand',at:K.gate},{t:'09:00',do:'wander',at:'yard'},{t:'15:30',do:'wander',at:'yard'},{t:'17:25',do:'stand',at:K.gate,hook:'dogwait'},{t:'18:00',do:'wander',at:'kitchen'},{t:'20:30',do:'wander',at:'living'}];
   S.echoes={yard:{actors:[{b:D,at:K.bench},{b:J,at:toy},{b:B,at:K.gate}],lines:[{who:null,text:'A truck, downshifting on Hill Street.'},{who:dad,text:dog.toUpperCase()+'—'},{who:kid,text:'Biscuit no no no—'},{who:null,text:'Brakes. A horn held down. Then nothing bad, this time.'},{who:dad,text:'I said STAY IN THE YARD.'}],clue:'echo'}};
   const setGate=(open)=>{S.state.closed=!open;K.gate.state.open=open;K.gate.mesh.rotation.y=open?-Math.PI/2:0;K.gate.mesh.position.copy(K.gate.pos);if(open)K.gate.mesh.position.z+=K.gate.size[0];};
-  S.props={bag,ham,toy}; S.setGate=setGate; setGate(true);
+  S.props={bag,ham,toy}; S.setGate=setGate; setGate(true); S.replay=(st)=>{ setGate(!st.closed); };
   S.onHook=(who,name)=>{ if(name==='phone'&&nearGhost(who))addClue('phone'); if(name==='dogwait'&&nearGhost(who,10))addClue('dogwait'); if(name==='open'&&!S.state.fixed)setGate(true);
     if(name==='evening'&&clock.day===1){setTimeout(()=>{B.exitDir=1;B.goOut();J.say(dog+'! '+dog+' come BACK!','force');setTimeout(()=>{D.say(dog.toUpperCase()+'!','force');},2500);setTimeout(()=>{B.away=false;B.mesh.visible=true;B.exiting=false;B.place(cellCenter(lot,...cellOf(lot,K.gate.pos.x+0.5,K.gate.pos.z-1)));B.goToCell(roomSpot(lot,'yard',rng));J.say('He came back. He always comes back.','force');},9000);},6000);} };
   S.onExamine=(who,prop)=>{ if(who!==D)return; if(prop===K.gate||prop===bag){ if(!S.state.fixed){D.say('Well, hell. Alright.','force');S.state.fixed=true;setGate(false);setTimeout(()=>{D.say('There. Latched.','force');addClue('latch');},4000);} } };
@@ -880,7 +880,7 @@ function storyBottle(lot,K,r){
   S.onHook=(who,name)=>{ if(name==='phone'&&nearGhost(who))addClue('phone'); if(name==='pill'){S.state.pillsToday=1;} if(name==='pill2'){ if(S.state.managed){who.say('One. She set it out. One.','force');return;} if((who.busy&&who.busy.type==='pause')||(S.state.paused&&clock.day===2)){return;} S.state.pillsToday=2; if(clock.day===1&&nearGhost(who,7))addClue('twice'); } };
   S.onExamine=(who,prop)=>{ if(who===M&&prop===bottle&&!S.state.managed){S.state.managed=true;M.say('Dad. How many of these have you— Dad.','force');setTimeout(()=>H.say('One. I take one.','force'),2500);setTimeout(()=>M.say('I\'m setting them out from now on. One. On the saucer.','force'),5000);addClue('bottle');
       M.routine.push({t:'06:45',day:2,do:'stand',at:bottle,say:['One. There.']});} };
-  S.bottle=bottle; S.props={bottle};
+  S.bottle=bottle; S.props={bottle}; S.replay=(st)=>{ if(st.managed&&!M.routine.some(e=>e.t==='06:45'))M.routine.push({t:'06:45',day:2,do:'stand',at:bottle,say:['One. There.']}); };
   S.onChill=(who)=>{ if(who===H&&clock.day===2&&clock.min>=hm('07:20')&&clock.min<hm('07:31')){who.busy={type:'pause',until:clock.min+12};who.say('Cold. Now what did I come in here for.','force');S.state.paused=true;} };
   S.onNudge=()=>false;
   S.resolve=()=>{ if(anyFled())return {result:'fled',title:'Carol\'s',lines:[`${dau} took ${dad} to her sister's after the noises. Nobody set out his pills there either.`]};
@@ -915,7 +915,7 @@ function storySuitcase(lot,K,r){
     {t:'17:00',do:'sit',at:K.chair2},{t:'19:00',do:'sit',at:K.sofa,say:['…']},{t:'21:30',do:'sleep',at:K.bedB},{t:'22:50',day:2,do:'stand',at:K.hooks,say:['Okay.','Okay.'],hook:'leave1'},{t:'23:05',day:2,do:'out',dir:1,hook:'leave'}];
   C.routine=[{t:'06:00',do:'wander',at:'kitchen'},{t:'09:00',do:'wander',at:'bedB'},{t:'16:00',do:'wander',at:'living'},{t:'21:00',do:'wander',at:'bedB'}];
   S.echoes={bedB:{actors:[{b:B,at:K.dresserB}],lines:[{who:null,text:'Afternoon. The suitcase open on the bed.'},{who:son,text:'Mom. I—'},{who:son,text:'Mom, don\'t be mad, I—'},{who:null,text:'He closes the suitcase. Opens it. Closes it.'},{who:son,text:'She\'d just cry.'}],clue:'echo'}};
-  S.props={note,suitcase,jacket};
+  S.props={note,suitcase,jacket}; S.replay=(st)=>{ if(st.found&&M.routine.some(e=>e.t==='14:40'&&e.day===undefined)){S.state.found=false;S.onExamine(M,note);} if(st.wrote){note.read=`Mom — I'm not running away, I'm going TO something. Job in ${city} through Ray's cousin. I'll call Sunday. I'm sorry I couldn't say it. I love you. — ${son}`;note.desc='Finished, finally. Signed.';} };
   S.onHook=(who,name)=>{ if(name==='phone'&&nearGhost(who))addClue('phone'); if(name==='pack'&&nearGhost(who,7))addClue('pack');
     if(name==='leave1'&&S.state.found){ setTimeout(()=>{M.say('Sit down a minute.','force');},1500);setTimeout(()=>{B.say('…How long have you known.','force');},4500);setTimeout(()=>{M.say(`Since Tuesday. Eat something before the bus.`,'force');S.state.talked=true;},7500);}
     if(name==='leave'&&S.state.wrote&&!S.state.found){ note.setPos(K.table.pos.clone().add(new THREE.Vector3(0.3,K.table.size[1],0.3))); } };
@@ -957,7 +957,7 @@ function storyBurner(lot,K,r){
   R.routine=[{t:'06:20',do:'wake',at:'bedB'},{t:'06:35',do:'sit',at:K.chair2,say:['Gran, you were up again.','I heard the kettle.','Yes, Gran.'],hook:'table'},{t:'07:30',do:'out',dir:1},{t:'15:10',do:'back'},{t:'15:20',do:'wander',at:'yard'},{t:'17:30',do:'sit',at:K.chair2,say:['Seven eights is fifty-six.']},{t:'19:00',do:'sit',at:K.sofa},{t:'20:00',do:'sleep',at:K.bedB}];
   C.routine=[{t:'06:00',do:'wander',at:'kitchen'},{t:'09:00',do:'wander',at:'living'},{t:'17:00',do:'wander',at:'bedB'},{t:'20:00',do:'wander',at:'living'}];
   S.echoes={kitchen:{actors:[{b:G,at:K.stove}],lines:[{who:null,text:'One in the morning. The kettle ticking as it cools.'},{who:gran,text:'There. Off.'},{who:null,text:'The knob says off. A blue tongue of flame says otherwise.'},{who:gran,text:'…Did I? I did.'}],clue:'echo'}};
-  S.props={};
+  S.props={}; S.replay=()=>{};
   const turnOff=(who)=>{ if(!S.state.burnerOn||S.state.off)return; S.state.off=true;S.state.burnerOn=false; who.say(who===G?'…That\'s not off. That is not off.':'Gran! Gran, the stove!','force'); if(who===R)setTimeout(()=>G.say('Oh, child. Oh, I thought—','force'),3000); addClue('stove'); };
   S.onHook=(who,name)=>{ if(name==='table'&&nearGhost(who))addClue('table'); if(name==='burner'){S.state.burnerOn=true;S.state.off=false;if(nearGhost(who,8))addClue('night');} if(name==='left'&&nearGhost(who,9)&&S.state.burnerOn)sys('She has gone to bed. The burner has not.'); };
   S.onExamine=(who,prop)=>{ if(S.state.burnerOn&&roomAtWorld(lot,prop.pos.x,prop.pos.z)==='kitchen')turnOff(who); };
@@ -1147,9 +1147,9 @@ let overlayBusy=false, seedText='';
 function showOverlay(html,after){const ov=$('overlay');ov.hidden=false;ov.classList.remove('fade');$('ocontent').innerHTML=html;paused=true;overlayBusy=true;const lines=[...ov.querySelectorAll('.line, button')];lines.forEach((l,i)=>setTimeout(()=>l.classList.add('in'),400+i*900));if(after)after();}
 function hideOverlay(){const ov=$('overlay');ov.classList.add('fade');setTimeout(()=>{ov.hidden=true;},1200);overlayBusy=false;}
 function setPaused(p){paused=p;}
-function showPause(){ showOverlay(`<h1>Jacqueline</h1><p class="line">Seed <span class="seed"><input id="seedin" value="${seedText}"></span></p><p class="seed line" style="line-height:1.8">WASD drift · Space up · C down · hold E attend · 1–5 abilities · Q linger · R skip · J journal · M mute · Tab free cursor · Esc pause</p><div class="row"><button class="primary" id="resume">Return</button><button id="newleap">New leap</button></div>`);
+function showPause(){ showOverlay(`<h1>Jacqueline</h1><p class="line">Seed <span class="seed"><input id="seedin" value="${seedText}"></span></p><div class="row"><button id="cloudsave">Save to cloud</button><button id="shareseed">Share this seed</button></div><input id="cloudlink" class="line in" hidden readonly style="width:min(420px,90vw);background:#0f1215;border:1px solid var(--line);color:var(--ink);padding:8px;border-radius:4px;font:inherit;font-size:12px"><p class="seed line" id="cloudmsg"></p><p class="seed line" style="line-height:1.8">WASD drift · Space up · C down · hold E attend · 1–5 abilities · Q linger · R skip · J journal · M mute · Tab free cursor · Esc pause</p><div class="row"><button class="primary" id="resume">Return</button><button id="newleap">New leap</button></div>`);
   $('resume').onclick=()=>{AU.init();const s=$('seedin').value.trim();if(s!==seedText){startLeap(s);return;}hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();};
-  $('newleap').onclick=()=>startLeap(Math.random().toString(36).slice(2,8)); }
+  $('newleap').onclick=()=>startLeap(Math.random().toString(36).slice(2,8)); $('cloudsave').onclick=cloudSave; $('shareseed').onclick=shareSeed; $('cloudlink').onclick=e=>e.target.select(); }
 const FRAGS=['You remember a lake in winter, and that you were not cold.','You remember a name being called from a porch. Not yours.','You remember the smell of a radio tube warming.','You remember a hand on a doorframe, deciding.','You remember that you were late for something, and then that it did not matter.','You remember a dog that would not stop looking at the corner of a room.','You remember a letter you did not send.','You remember the sound a gate makes.'];
 function leapsDone(){try{return +(localStorage.getItem('jq:leaps')||0);}catch(e){return 0;}}
 function renderFrag(){const n=leapsDone();$('frag').innerHTML=n?FRAGS.slice(0,Math.min(n,FRAGS.length)).map(f=>`<div>${f}</div>`).join(''):'<div>Nothing yet. Each haunting gives a little back.</div>';}
@@ -1157,7 +1157,7 @@ function renderFrag(){const n=leapsDone();$('frag').innerHTML=n?FRAGS.slice(0,Ma
 // ═══════════════════════════ LEAP (world build) ═══════════════════════════
 const lots=[];
 function clearWorld(){ for(const o of scene.children.slice())scene.remove(o); people.length=0;pets.length=0;lots.length=0;lotRects.length=0;hCache.clear();clues.length=0;echoMeshes.length=0;propId=0;for(const k in ghost.n)ghost.n[k]=0;ghost.known.clear();ghost.sel=0;ghost.legs=0;ghost.presence=1;unlockedSeen.clear();unlockedSeen.add('attend'); }
-function startLeap(seed){
+function startLeap(seed,opts={}){
   seedText=seed; SEED=strToSeed(seed); rng=mulberry(SEED); initNoise(SEED); clearWorld(); try{localStorage.setItem('jq:last',seed);}catch(e){}
   const sr=mulberry(SEED^0xabc); const SD=STORIES[Math.floor(sr()*STORIES.length)]; era=ERA=ERAS[SD.eras[Math.floor(sr()*SD.eras.length)]];
   if(PAL.length===1)initTerrainPal();
@@ -1180,11 +1180,50 @@ function startLeap(seed){
   showOverlay(`<h1>Jacqueline</h1><p class="line">You are somewhere.</p><p class="line">${story.wake[0]}</p><p class="line">${story.wake[1]}</p><p class="line spec">It is ${dow}, ${month} ${dayn}, ${era.year}. You are fairly sure you are dead.</p><button class="primary" id="open">Open your eyes</button><p class="seed line">seed <input id="seedin" value="${seedText}" autocomplete="off" spellcheck="false"> <button id="reseed" class="quiet" style="opacity:1;padding:6px 10px;font-size:10px">go</button></p>${isTouch?'':'<p class="seed line" style="line-height:1.8">WASD drift · Space up · C down · hold E attend · 1–5 abilities · Q linger · R skip · J journal · M mute · Tab free cursor · Esc pause</p>'}`);
   $('open').onclick=()=>{AU.init();hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();setTimeout(()=>sys('Move. Slowly at first. Something is carrying you.'),1500);setTimeout(()=>sys('Look closely at things. Hold E. Your journal is J.'),9000);};
   const reseed=()=>{const v=$('seedin').value.trim();if(v&&v!==seedText)startLeap(v);}; $('reseed').onclick=reseed; $('seedin').addEventListener('keydown',e=>{if(e.key==='Enter')reseed();});
-  hingeDone=false;
+  hingeDone=false; story._cloudId=null;
+  if(opts.quiet){$('overlay').hidden=true;overlayBusy=false;return;}
+  const ls=localSave(); if(ls&&ls.seed===seedText){ const b=document.createElement('button');b.className='primary in';b.id='resumeLocal';b.textContent=`Resume — ${fmtTime(ls.min)}, day ${ls.day}`;$('open').before(b);b.onclick=()=>{AU.init();restore(ls);}; $('open').textContent='Start over'; $('open').classList.remove('primary'); }
 }
 let hingeDone=false;
+// ───── saves: local autosave, cloud saves via the worker, share links ─────
+function serialize(){
+  return {v:1,seed:seedText,day:clock.day,min:clock.min,at:Date.now(),title:story.title,
+    ghost:{x:ghost.x,y:ghost.y,z:ghost.z,yaw:ghost.yaw,pitch:ghost.pitch,legs:ghost.legs,presence:ghost.presence,n:Object.assign({},ghost.n),known:[...ghost.known],sel:ghost.sel},
+    story:JSON.parse(JSON.stringify(story.state)),clues:clues.slice(),hypo:$('hypo').value,unlocked:[...unlockedSeen],echoes:Object.keys(story.echoes).filter(k=>story.echoes[k].played),
+    beings:people.concat(pets).map(b=>({x:b.pos.x,y:b.pos.y,z:b.pos.z,yaw:b.yaw,fear:b.fear,away:!!b.away,anoms:b.anoms||0,fled:!!b.fled})),
+    props:lot.props.map(p=>[+p.pos.x.toFixed(3),+p.pos.y.toFixed(3),+p.pos.z.toFixed(3),p.hidden?1:0,p.displaced?1:0,p.name,p.desc])};
+}
+function restore(sv){
+  startLeap(sv.seed,{quiet:true});
+  clock.day=sv.day;clock.min=sv.min;
+  Object.assign(ghost,{x:sv.ghost.x,y:sv.ghost.y,z:sv.ghost.z,yaw:sv.ghost.yaw,pitch:sv.ghost.pitch,legs:sv.ghost.legs,presence:sv.ghost.presence,sel:sv.ghost.sel});Object.assign(ghost.n,sv.ghost.n);for(const k of sv.ghost.known)ghost.known.add(k);
+  for(const k of sv.unlocked||[])unlockedSeen.add(k);
+  sv.props.forEach((r,i)=>{const p=lot.props[i];if(!p)return;p.setPos(new THREE.Vector3(r[0],r[1],r[2]));p.show(!r[3]);p.displaced=!!r[4];p.name=r[5];p.desc=r[6];});
+  Object.assign(story.state,sv.story); if(story.replay)story.replay(sv.story); for(const k of sv.echoes||[])if(story.echoes[k])story.echoes[k].played=true;
+  const all=people.concat(pets); sv.beings.forEach((r,i)=>{const b=all[i];if(!b)return;b.place(new THREE.Vector3(r.x,r.y,r.z));b.yaw=r.yaw;b.fear=r.fear;b.anoms=r.anoms;b.fled=r.fled;b.away=r.away;b.mesh.visible=!r.away;b.cur=null;b.path=null;b.busy=null;b.sync();});
+  for(const c of story.cast){const cn=sv.ghost.known.some(k=>k==='being:'+c.b.name);if(cn)c.known=true;}
+  clues.length=0;for(const id of sv.clues)clues.push(id); $('hypo').value=sv.hypo||''; refreshBlocks(lot);
+  renderClues();renderCast();renderAbil(); hingeDone=false;
+  showOverlay(`<h1>Jacqueline</h1><p class="line">${story.title}, ${era.year}. ${fmtTime(clock.min)}, day ${clock.day}.</p><p class="line spec">You were here. You are still here.</p><button class="primary" id="open">Open your eyes</button>`);
+  $('open').onclick=()=>{AU.init();hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();};
+}
+function autosave(){ if(!story||hingeDone||paused)return; try{localStorage.setItem('jq:auto',JSON.stringify(serialize()));}catch(e){} }
+setInterval(autosave,15000); addEventListener('visibilitychange',()=>{if(document.hidden)autosave();});
+function localSave(){ try{const raw=localStorage.getItem('jq:auto');if(!raw)return null;const sv=JSON.parse(raw);return sv&&sv.v===1?sv:null;}catch(e){return null;} }
+const API=location.protocol.startsWith('http')?location.origin:'';
+function randId(){const a=new Uint8Array(12);crypto.getRandomValues(a);return [...a].map(b=>(b%36).toString(36)).join('');}
+async function cloudSave(){
+  const sv=serialize(); const id=(story._cloudId||=randId()); const st=$('cloudmsg'); st.textContent='Saving…';
+  try{ const r=await fetch(API+'/api/save/'+id,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(sv)}); const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||r.status);
+    const link=location.origin+location.pathname+'?save='+id; $('cloudlink').value=link; $('cloudlink').hidden=false; st.textContent='Saved. Anyone with this link resumes here.';
+    try{await navigator.clipboard.writeText(link);st.textContent='Saved — link copied.';}catch(e){}
+  }catch(e){ st.textContent='Cloud save unavailable ('+e.message+'). Your local autosave still works.'; }
+}
+async function cloudLoad(id){ try{const r=await fetch(API+'/api/save/'+id);if(!r.ok)throw 0;const sv=await r.json();restore(sv);return true;}catch(e){sys('That save could not be found.');return false;} }
+function shareSeed(){ const link=location.origin+location.pathname+'?seed='+encodeURIComponent(seedText); $('cloudlink').value=link;$('cloudlink').hidden=false;$('cloudmsg').textContent='This link opens the same house, fresh.'; try{navigator.clipboard.writeText(link);$('cloudmsg').textContent='Seed link copied.';}catch(e){} }
 function fireHinge(){
-  hingeDone=true; setSpeed('normal'); const R=story.resolve(); try{localStorage.setItem('jq:leaps',String(leapsDone()+1));}catch(e){}
+  hingeDone=true; setSpeed('normal'); try{localStorage.removeItem('jq:auto');}catch(e){} const R=story.resolve(); try{localStorage.setItem('jq:leaps',String(leapsDone()+1));}catch(e){}
   sys('Something is being decided.');
   setTimeout(()=>{ showOverlay(`<h1>${R.title}</h1>`+R.lines.map(l=>`<p class="line${R.result==='success'?' spec':''}">${l}</p>`).join('')+`<p class="line spec">${FRAGS[Math.min(leapsDone()-1,FRAGS.length-1)]}</p><div class="row"><button class="primary" id="again">Leap again</button><button id="stay">Stay a while</button></div>`);
     $('again').onclick=()=>startLeap(Math.random().toString(36).slice(2,8)); $('stay').onclick=()=>{AU.init();hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();}; },9000);
@@ -1271,8 +1310,8 @@ function loop(now){
   applySky(); renderer.render(scene,camera);
   $('clk').textContent=fmtTime(clock.min); $('day').textContent=`${DOW[(clock.day)%7]} · day ${clock.day}`+(clock.mode!=='normal'?' · '+clock.mode:''); $('pbar').style.transform=`scaleX(${ghost.presence})`; $('vig').style.opacity=1.3-ghost.presence*0.5;
 }
-function boot(){ let s='';try{s=localStorage.getItem('jq:last')||'';}catch(e){} startLeap(s||'hill street'); requestAnimationFrame(loop); }
-window.__ghost={startLeap,fall,get era(){return era;},get clock(){return clock;},get people(){return people;},get pets(){return pets;},get story(){return story;},ghost,setSpeed,useAbility,get lot(){return lot;},anomaly,addClue,get clues(){return clues;},get paused(){return paused;},setPaused,get focus(){return focus;},ABIL,attendDone,get K(){return K;}};
+function boot(){ const q=new URLSearchParams(location.search); let s='';try{s=localStorage.getItem('jq:last')||'';}catch(e){} if(q.get('save')){startLeap(s||'willow');requestAnimationFrame(loop);cloudLoad(q.get('save'));return;} startLeap(q.get('seed')||s||'willow'); requestAnimationFrame(loop); }
+window.__ghost={startLeap,fall,serialize,restore,get era(){return era;},get clock(){return clock;},get people(){return people;},get pets(){return pets;},get story(){return story;},ghost,setSpeed,useAbility,get lot(){return lot;},anomaly,addClue,get clues(){return clues;},get paused(){return paused;},setPaused,get focus(){return focus;},ABIL,attendDone,get K(){return K;}};
 window.claude?.hot?.snapshot?.(()=>({seed:seedText}));
 if(window.claude?.hot?.ready)window.claude.hot.ready(boot); else boot();
 })();
