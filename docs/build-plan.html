@@ -1,0 +1,120 @@
+<title>Jacqueline Build Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{--bg:#f5f2ec;--bg2:#ebe7de;--ink:#1d1b18;--ink2:#5b574f;--line:#d9d3c6;--spectral:#1f7f74;--spectral-soft:#d6ece7;--lamp:#b8781a;--lamp-soft:#f3e3c2;--code:#e9e4d8;--danger:#a34a33}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101214;--bg2:#171a1d;--ink:#dedad0;--ink2:#a19c90;--line:#2a2e33;--spectral:#8fd3c7;--spectral-soft:#16302c;--lamp:#e8b04a;--lamp-soft:#332a16;--code:#1c2024;--danger:#e08a6e}}
+  :root[data-theme="dark"]{--bg:#101214;--bg2:#171a1d;--ink:#dedad0;--ink2:#a19c90;--line:#2a2e33;--spectral:#8fd3c7;--spectral-soft:#16302c;--lamp:#e8b04a;--lamp-soft:#332a16;--code:#1c2024;--danger:#e08a6e}
+  body{background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans",system-ui,sans-serif;padding-block:0 80px;padding-inline:20px;margin:0}
+  .wrap{max-width:760px;margin:0 auto}
+  header{padding-block:56px 32px;border-bottom:1px solid var(--line);margin-bottom:40px}
+  .eyebrow{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--spectral);margin:0 0 18px}
+  h1{font:300 clamp(40px,8vw,68px)/1.02 "Fraunces",Georgia,serif;font-variation-settings:"opsz" 144;margin:0 0 14px;letter-spacing:-.02em;text-wrap:balance}
+  h1 em{font-style:italic;font-weight:500;color:var(--spectral)}
+  .lede{font:italic 300 clamp(18px,3vw,22px)/1.45 "Fraunces",Georgia,serif;color:var(--ink2);margin:0;max-width:52ch;text-wrap:balance}
+  h2{font:600 26px/1.2 "Fraunces",Georgia,serif;margin:56px 0 14px;letter-spacing:-.01em;text-wrap:balance}
+  h2 .n{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;color:var(--ink2);display:block;margin-bottom:8px}
+  p{margin:0 0 14px;max-width:66ch}
+  p.note{color:var(--ink2);font-size:14px;border-left:2px solid var(--lamp);padding-left:12px}
+  strong{font-weight:600}
+  .k{font:13px "IBM Plex Mono",monospace;background:var(--code);padding:1px 5px;border-radius:3px}
+  ul{padding-left:18px;margin:0 0 14px;max-width:66ch}li{margin-bottom:6px}
+  .phase{display:grid;grid-template-columns:110px 1fr;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
+  .phase:last-of-type{border-bottom:1px solid var(--line)}
+  .phase .ph{font:500 11px/1.5 "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--spectral)}
+  .phase .ph small{display:block;color:var(--ink2);letter-spacing:.04em;text-transform:none;font-size:11px;margin-top:4px}
+  .phase b{display:block;font:600 17px/1.3 "Fraunces",serif;margin-bottom:6px}
+  .phase p{font-size:15px;margin-bottom:8px}
+  .phase.now{background:var(--spectral-soft);margin-inline:-14px;padding-inline:14px;border-radius:4px;border-color:transparent}
+  @media (max-width:520px){.phase{grid-template-columns:1fr;gap:6px}}
+  .tbl{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;margin:14px 0 20px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+  td:first-child{font-weight:600;white-space:nowrap}
+  .q{display:grid;gap:12px;margin-top:16px}
+  .q div{padding:14px 16px;border:1px solid var(--line);border-radius:4px;background:var(--bg2)}
+  .q b{display:block;font:600 16px/1.3 "Fraunces",serif;margin-bottom:4px}
+  .q span{font-size:14px;color:var(--ink2)}
+  .q i{font-style:normal;color:var(--spectral);font-weight:500}
+  .rec{background:var(--lamp-soft);border:1px solid var(--lamp);border-radius:4px;padding:14px 16px;margin:16px 0}
+  .rec .t{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--lamp);margin-bottom:6px}
+  .keys{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px;margin:0 0 16px;max-width:60ch}
+  .keys dt{font:500 13px "IBM Plex Mono",monospace;color:var(--ink);white-space:nowrap}.keys dd{margin:0;color:var(--ink2)}
+  footer{margin-top:64px;padding-top:18px;border-top:1px solid var(--line);color:var(--ink2);font-size:13px}
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Build plan · v0.2 · Sept 15 2026 · working title: Jacqueline</p>
+  <h1>Jacqueline, from <em>one house</em> to a world.</h1>
+  <p class="lede">The vertical slice is playable. This is what it is, what it isn't yet, the order I'd build the rest in, and the calls you made.</p>
+</header>
+
+<h2><span class="n">00 · STATUS</span>What exists this morning</h2>
+<p>A single-file browser build of Jacqueline (round 2): a generated 1954 ranch house on a generated lot, two neighbours, a road, woods to the horizon. One household of two people and a pet, each with an hour-by-hour routine and a temperament. A clock whose length the hinge sets. A ghost who wakes amorphous and learns, by doing, to look, to be felt, to touch, to draw an eye, and to see what a room remembers. One of three hinge situations per seed — a letter unopened, a gate unlatched, a bottle miscounted — each with planted clues, a deadline, and four endings (right, near, wrong, and "they fled the house"). A journal that keeps what you've noticed and lets you write your own theory. A fragment of your own story after each leap.</p>
+<p>Every leap is a pure function of its seed. Type <span class="k">pearl</span>, <span class="k">biscuit</span>, or <span class="k">hill street</span> at the pause screen to get each of the three situations; anything else picks one and re-rolls names, house, and colours.</p>
+
+<h3 style="font:600 15px/1.3 'IBM Plex Sans';margin:24px 0 8px">How to play it</h3>
+<dl class="keys">
+  <dt>Mouse / WASD</dt><dd>look, drift. Space rises, C sinks. You pass through walls. You get faster as you go.</dd>
+  <dt>Hold E</dt><dd>Attend — look closely at whatever the crosshair is on. Names, descriptions, anything readable.</dd>
+  <dt>1–5 / wheel</dt><dd>pick an ability; E uses it. Locked ones show what unlocks them.</dd>
+  <dt>Q / R</dt><dd>Linger (slow time) / Skip (fast). You're timeless; use it.</dd>
+  <dt>J</dt><dd>Journal. Esc pauses; seed field is there.</dd>
+  <dt>Phone</dt><dd>left thumb moves, right thumb looks, ACT button uses the selected ability.</dd>
+</dl>
+<div class="rec"><div class="t">Still honest</div>It is a slice. Sleep is a stiff lie-down, echo scenes are still figures with subtitles, and the synthesized voices are mumbles, not words. Judge the <em>loop</em> — wake, watch, notice, learn, act, consequence — not the polish.</div>
+
+<h2><span class="n">01 · CHOICES I MADE</span>While you were asleep</h2>
+<ul>
+  <li><strong>Sea legs are practice-unlocks.</strong> Attending four things teaches you to be felt; two chills teach you to touch; two touches teach you to beckon; two sentimental objects teach you echoes. It's a tech tree in disguise, but the disguise is thin on purpose: you learn by paying attention, which is the game's whole ethic.</li>
+  <li><strong>Only what the ghost is near gets noticed.</strong> A phone call across the house isn't a clue unless you're in the room. Skipping time is free but it skips the eavesdropping too.</li>
+  <li><strong>Reactions are a roll, not a rule.</strong> A dropped cup is noticed with a probability shaped by distance, temperament, and how much has already happened. Things left out of place get found later. Fear accumulates and decays; over 85% and they leave the house, which fails most hinges.</li>
+  <li><strong>Sub-voxel look, one material.</strong> Buildings and furniture at 0.25 m, people and small objects at 0.125 m, terrain at 1 m, all baked-lit with ambient occlusion, one draw call per object. It runs on a phone. WebGL, not WebGPU, because the module build the artifact sandbox allows is the older UMD one; that's a hosting constraint, not a design one.</li>
+  <li><strong>Text is grammar-only</strong>, as agreed. Lines are templates with slots; the three situations are hand-written with generated names, places, and colours.</li>
+</ul>
+
+<h2><span class="n">02 · PHASES</span>The order I'd build the rest</h2>
+
+<div class="phase"><div class="ph">Phase 0<small>done</small></div><div><b>Play the slice, judge the loop</b><p>Three seeds, three situations. Decided: keep going.</p></div></div>
+<div class="phase now"><div class="ph">Round 2<small>done · Sept 15</small></div><div><b>Sound, bodies, lamplight, receptivity</b><p>All audio synthesized in-browser: footsteps and paws, voices as era-pitched mumbles, the kettle-less kitchen hum of the icebox, wind, crickets after dark, a radio in the living room after six, a cup breaking, a drawer, a gate, and each ghost act. People now have legs that walk, heads that turn toward what they're examining or who they're talking to — and toward <em>you</em>, briefly, when you reach them through the channel they're open to. Faces at double resolution. Windows glow and the interior warms at night while someone's awake.</p><p>Per your calls: abilities are hybrid — practice unlocks the channel, and each person is open to one (cold, touch, or a glance; Attend reveals it) while sentimental objects carry charge (half the cost to move, louder when they fall). Leap length is set by the hinge: the Letter is two days, the Gate an afternoon and a day, the Bottle a night and a morning. Deadlines arrive as clues, never as a timer.</p></div></div>
+
+<div class="phase"><div class="ph">Phase 1<small>1–2 weeks</small></div><div><b>Feel</b><p>Sound first: footsteps, radio, the kettle, wind — and the ghost's acts (a cup, a draft, a latch). Walking animation and turning heads. Interior light at night. A proper echo (translucent replay of the actual movement, not statues). Ghost drift with inertia. Presence as a visible vignette. Time-skip that shows a fast-forwarded day instead of a blur.</p><p>Also: the person you Attend should tell you something true about their temperament, so a player can plan a haunting instead of guessing.</p></div></div>
+
+<div class="phase"><div class="ph">Phase 2<small>3–5 weeks</small></div><div><b>The situation generator</b><p>This is the real project. Replace three hand-written hinges with a grammar: a <em>tension</em> (grief, an unmade decision, an estrangement, a secret, a danger ahead, a missed chance) × a <em>person with a pattern</em> × an <em>object that carries it</em> × a <em>moment on the clock</em>. Each produces a cast, routines, planted clues in four registers, and a solvability walk that regenerates the leap if a player can't reach the diagnosis by two routes. Target: twenty distinct hinges from six shapes before adding a second era.</p></div></div>
+
+<div class="phase"><div class="ph">Phase 3<small>3–4 weeks</small></div><div><b>Settlement</b><p>Streets and lots by grammar; five house shapes for 1954; a main street with a diner, a church, the bus stop, the mill — places routines can send people, so the house isn't the whole world. Plug Ad Nauseam's infinite terrain back underneath so you can drift out of town and find the next one. Second era pack (1928 or 1981) to prove the packs are data.</p></div></div>
+
+<div class="phase"><div class="ph">Phase 4<small>2–3 weeks</small></div><div><b>Words</b><p>Pre-baked packs: thousands of era-tagged fragments — letters, arguments, diary pages, radio — written with an LLM at authoring time and shipped as data with slots. The runtime stays offline and deterministic. Optional live-LLM layer behind a key for people who want infinite text.</p></div></div>
+
+<div class="phase"><div class="ph">Phase 5<small>its own layer</small></div><div><b>Our story</b><p>A fixed set of true facts about who you were, generated once per player. Every leap returns memories <em>about</em> those facts, corrupted two ways: by how you haunted (subtle and attentive returns clearer memories; loud and frightening returns vivid ones borrowed from that house) and by neglect (a memory you don't revisit loses a detail each leap). Some are true, some are the last house's furniture wearing your name, some contradict. The journal lets you pin, doubt, and strike them. The riddle is solvable because the true facts agree with each other and with the eras you keep landing in, and the false ones don't. The last leap is a house you recognize before the game tells you.</p></div></div>
+
+<h2><span class="n">03 · ENGINEERING</span>Moves worth making early</h2>
+<div class="tbl"><table>
+<tr><th>Move</th><th>Why</th><th>When</th></tr>
+<tr><td>Repo + Vite</td><td>The slice is one 1,000-line file. Fine for a night, wrong for Phase 2. Modules per layer (world, era, settle, interior, people, story, sim, ghost, text, ui) as the design map lays out.</td><td>Before Phase 1</td></tr>
+<tr><td>Workers for meshing</td><td>Three lots plus terrain mesh on the main thread at leap start — about two seconds on a phone. Workers make it free and unlock streaming towns.</td><td>Phase 3</td></tr>
+<tr><td>WebGPU via ESM</td><td>Once we own hosting, three.js's WebGPU renderer becomes available. Not needed for the look; needed for bigger towns.</td><td>Phase 3</td></tr>
+<tr><td>Save mid-leap</td><td>Seed + clock + edits + state. Deterministic sim makes this small.</td><td>Phase 1</td></tr>
+<tr><td>Replay from seed + input log</td><td>Bug reports become a seed and a log; playtests become watchable.</td><td>Phase 2</td></tr>
+</table></div>
+
+<h2><span class="n">04 · RISKS</span>What I'd watch</h2>
+<ul>
+  <li><strong>Template feel.</strong> Three situations will feel like three situations by the fourth play. Phase 2 is the answer; nothing else papers over it.</li>
+  <li><strong>Luck.</strong> Reactions are rolls. A player can do the right thing and have it go unnoticed. Mitigated by "things out of place get found later", but the failure text will feel unfair sometimes. Worth a design rule: the right act at the right time always works; luck only shapes <em>how</em>.</li>
+  <li><strong>Dark endings.</strong> The Bottle's fail state is a death. That's honest to the premise, and it's also a tone decision you should make on purpose, not inherit from me.</li>
+  <li><strong>Voxel faces.</strong> At 0.125 m people read as people from across a room; up close they are toys. If the tenderness doesn't survive that, the interior data model carries over to an isometric look unchanged.</li>
+  <li><strong>The title.</strong> "Ghost" is a good name and a crowded one. A working title now saves a rename later.</li>
+</ul>
+
+<h2><span class="n">05 · YOUR CALLS</span>Decided Sept 15 — kept for the record</h2>
+<p class="note">Hybrid abilities (practice + per-person receptivity + per-object charge). Deaths allowed in failure. Memory corruption both by how you haunt and by neglect. One more single-file round before the repo — that round is the one above. Title: Jacqueline (game only; the ghost stays unnamed). Audio synthesized, no samples. Clock set by the hinge, deadline learned as a clue.</p>
+<div class="q" hidden>
+  <div><b>Is learning-by-doing the right way to earn abilities?</b><span>Alternative: the situation grants them — a house with a grieving widow lets you be seen; a house with a dog lets you be smelled. More thematic, less RPG. <i>I lean practice, but I built it fast and could be wrong.</i></span></div>
+  <div><b>Two game days per leap?</b><span>That's ~35 real minutes at normal speed, less with Skip. Long enough to learn a routine, short enough to replay. <i>Could be one day with a tighter house, or three with a town.</i></span></div>
+  <div><b>How dark can failure go?</b><span>Deaths, or only losses? Both are honest. One is a different game.</span></div>
+  <div><b>Repo now, or keep iterating the single file for one more round?</b><span>Repo means GitHub + Vite + a real host and I stop publishing artifacts. <i>I'd do it before any Phase 1 work.</i></span></div>
+</div>
+
+<footer>Companion to the Ghost Design Map. The slice is published as "Ghost"; the terrain layer remains "Ad Nauseam".</footer>
+</div>

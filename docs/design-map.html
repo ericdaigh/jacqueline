@@ -1,0 +1,164 @@
+<title>Ghost Design Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#f5f2ec; --bg2:#ebe7de; --ink:#1d1b18; --ink2:#5b574f; --line:#d9d3c6;
+    --spectral:#1f7f74; --spectral-soft:#d6ece7; --lamp:#b8781a; --lamp-soft:#f3e3c2;
+    --code:#e9e4d8;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#101214; --bg2:#171a1d; --ink:#dedad0; --ink2:#a19c90; --line:#2a2e33;
+    --spectral:#8fd3c7; --spectral-soft:#16302c; --lamp:#e8b04a; --lamp-soft:#332a16; --code:#1c2024;
+  }}
+  :root[data-theme="dark"]{
+    --bg:#101214; --bg2:#171a1d; --ink:#dedad0; --ink2:#a19c90; --line:#2a2e33;
+    --spectral:#8fd3c7; --spectral-soft:#16302c; --lamp:#e8b04a; --lamp-soft:#332a16; --code:#1c2024;
+  }
+  body{background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans",system-ui,sans-serif;padding-block:0 80px;padding-inline:20px;margin:0}
+  .wrap{max-width:760px;margin:0 auto}
+  header{padding-block:56px 32px;border-bottom:1px solid var(--line);margin-bottom:40px}
+  .eyebrow{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--spectral);margin:0 0 18px}
+  h1{font:300 clamp(44px,9vw,76px)/1 "Fraunces",Georgia,serif;font-variation-settings:"opsz" 144;margin:0 0 14px;letter-spacing:-.02em;text-wrap:balance}
+  h1 em{font-style:italic;font-weight:500;color:var(--spectral)}
+  .lede{font:italic 300 clamp(18px,3vw,22px)/1.45 "Fraunces",Georgia,serif;color:var(--ink2);margin:0;max-width:52ch;text-wrap:balance}
+  h2{font:600 26px/1.2 "Fraunces",Georgia,serif;margin:56px 0 14px;letter-spacing:-.01em;text-wrap:balance}
+  h2 .n{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;color:var(--ink2);display:block;margin-bottom:8px}
+  h3{font:600 15px/1.3 "IBM Plex Sans",sans-serif;margin:26px 0 6px;letter-spacing:.01em}
+  p{margin:0 0 14px;max-width:66ch}
+  p.note{color:var(--ink2);font-size:14px;border-left:2px solid var(--lamp);padding-left:12px}
+  strong{font-weight:600}
+  code,.k{font:13px "IBM Plex Mono",monospace;background:var(--code);padding:1px 5px;border-radius:3px}
+  .loop{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:18px 0 22px}
+  .loop div{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:12px 12px 10px;font-size:13px;line-height:1.4}
+  .loop b{display:block;font:600 14px "Fraunces",serif;margin-bottom:4px}
+  .loop small{color:var(--ink2)}
+  /* stack diagram */
+  .stack{display:grid;gap:4px;margin:18px 0 24px;counter-reset:layer}
+  .stack .l{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;padding:12px 14px;background:var(--bg2);border:1px solid var(--line);border-radius:4px}
+  .stack .l:before{counter-increment:layer;content:"L" counter(layer);font:500 12px/1.6 "IBM Plex Mono",monospace;color:var(--spectral)}
+  .stack .l.story{border-color:var(--spectral);background:var(--spectral-soft)}
+  .stack b{display:block;font-weight:600;font-size:15px}
+  .stack span{font-size:14px;color:var(--ink2);display:block;line-height:1.5}
+  .arrow{text-align:center;color:var(--ink2);font:12px "IBM Plex Mono",monospace;letter-spacing:.1em;padding:2px}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:14px 0 20px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+  td:first-child{font-weight:600;white-space:nowrap}
+  .tbl{overflow-x:auto}
+  .rec{background:var(--lamp-soft);border:1px solid var(--lamp);border-radius:4px;padding:14px 16px;margin:16px 0}
+  .rec .t{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--lamp);margin-bottom:6px}
+  .q{display:grid;gap:12px;margin-top:16px}
+  .q div{padding:14px 16px;border:1px solid var(--line);border-radius:4px;background:var(--bg2)}
+  .q b{display:block;font:600 16px/1.3 "Fraunces",serif;margin-bottom:4px}
+  .q span{font-size:14px;color:var(--ink2)}
+  .q i{font-style:normal;color:var(--spectral);font-weight:500}
+  ul{padding-left:18px;margin:0 0 14px;max-width:66ch}li{margin-bottom:6px}
+  .mono{font:13px "IBM Plex Mono",monospace;color:var(--ink2)}
+  footer{margin-top:64px;padding-top:18px;border-top:1px solid var(--line);color:var(--ink2);font-size:13px}
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">Design map · v0.1 · Sept 2026</p>
+  <h1>Ghost <em>needs a stage,<br>not a world.</em></h1>
+  <p class="lede">You wake dead, somewhere, sometime. Someone alive is stuck. The game is figuring out what kind of ghost this moment needs — and being it.</p>
+</header>
+
+<h2><span class="n">00 · THESIS</span>Situation first, terrain second</h2>
+<p>Ad Nauseam proves the world can be endless. But Ghost isn't about the world; it's about one household, one rut, one hinge moment. So the generator should be inverted: <strong>generate the situation, then grow a setting that serves it, then drop that setting into the infinite terrain.</strong> The terrain is the horizon you see out the window. The story is the house.</p>
+<p>The Quantum Leap frame gives us a clean loop and a built-in answer to "why is it random every time": you don't choose where you land. Each leap is a fresh seed; the ghost's own story is the only thing that carries over.</p>
+
+<div class="loop">
+  <div><b>Wake</b><small>Nothing known. Era, place, and who lives here all have to be read from the room.</small></div>
+  <div><b>Observe</b><small>Follow routines. Notice what repeats, what's avoided, what's broken.</small></div>
+  <div><b>Discover</b><small>Clues in objects, letters, talk, and echoes of past events.</small></div>
+  <div><b>Diagnose</b><small>Name the rut and the hinge: when, who, and what would help.</small></div>
+  <div><b>Haunt</b><small>Intervene with a limited, physical toolkit — timing is the skill.</small></div>
+  <div><b>Release</b><small>The pattern breaks. Watch the new course begin. Then you're gone.</small></div>
+</div>
+
+<h2><span class="n">01 · GENERATION STACK</span>Eight layers, story in the middle</h2>
+<p>Everything derives from the leap seed, so nothing is stored except what the player changed. Layers are generated top-down at leap time; L1–L2 stream lazily like terrain does now.</p>
+
+<div class="stack">
+  <div class="l"><div><b>Era &amp; place</b><span>Era (1870s homestead, 1920s rooming house, 1950s subdivision, 1980s apartment block, 2020s, unplaced future), climate/biome from terrain, settlement scale (lone farm → village → town → city block). Era selects a <em>content pack</em>: architecture grammar, object set, names, idiom, technology, social norms.</span></div></div>
+  <div class="l"><div><b>Settlement</b><span>Roads and lots by grammar (grid, organic, ribbon along a road). Buildings by era-specific shape grammar: footprint, stories, roof, materials, wear. Landmarks that read at a glance: church, diner, mill, station.</span></div></div>
+  <div class="l"><div><b>Interiors &amp; objects</b><span>Rooms by function, furniture by era, and — the important part — <strong>objects with affordances</strong>: can fall, can make noise, can be read, can be moved, is fragile, is sentimental. The cup in the cupboard is an affordance, not decoration.</span></div></div>
+  <div class="l story"><div><b>Household &amp; people</b><span>Names by era/region, ages, relationships, jobs, traits, wants and fears. Each person has a <strong>routine</strong> (schedule by hour) and a <strong>pattern</strong> — the rut. Pets have routines too, and they can sense you.</span></div></div>
+  <div class="l story"><div><b>The hinge</b><span>The dramatic core: a tension (grief, an unmade decision, an estrangement, a secret, a danger ahead, a missed chance), a <strong>hinge moment</strong> on the clock (the train they'll miss, the letter they won't open, the argument that repeats at 6pm), the nudge that would change it, and both outcomes.</span></div></div>
+  <div class="l story"><div><b>Clue graph</b><span>Clues planted across objects, routines, dialogue, and <em>echoes</em> (replayable past moments only a ghost can see). Every clue is tagged by what it reveals — who, what's wrong, when, what would help — and how subtle it is. Generator guarantees at least two independent paths to a correct diagnosis.</span></div></div>
+  <div class="l"><div><b>Simulation</b><span>People run routines; anomalies go through <em>notice → attribute → respond</em>. A dropped cup can be dismissed, blamed on the cat, feared, or taken as a sign — which depends on the person's traits and how much you've already done. This is where "any kind of ghost" lives.</span></div></div>
+  <div class="l"><div><b>Text &amp; voice</b><span>Letters, diaries, radio, newspapers, dialogue. Era-correct. Generated from grammars over the situation data so text always agrees with the world. (Biggest open decision — see §05.)</span></div></div>
+</div>
+
+<h2><span class="n">02 · THE GHOST'S TOOLKIT</span>Varied in function, like anyone alive</h2>
+<p>Abilities are physical and cheap to simulate. Depth comes from timing and from how the living interpret them, not from a skill tree.</p>
+<div class="tbl"><table>
+<tr><th>Channel</th><th>What you can do</th><th>What it's for</th></tr>
+<tr><td>Kinetic</td><td>Nudge, tip, drop, roll, open/close, knock</td><td>Interrupt a routine at the right second; put an object in someone's path</td></tr>
+<tr><td>Ambient</td><td>Cold spot, draft, flicker, hum, a smell from the past</td><td>Set mood; make someone linger or leave a room</td></tr>
+<tr><td>Presence</td><td>Reflection, shadow, dream visit, a shape in the doorway</td><td>The scary route — sometimes exactly what's needed, always costly</td></tr>
+<tr><td>Animal</td><td>Pets see you; lead a dog, spook a cat, wake a bird</td><td>The living trust animals; use them as your hands</td></tr>
+<tr><td>Echo</td><td>Replay a past moment in a room</td><td>Your main clue source — you see what happened here</td></tr>
+<tr><td>Attention</td><td>Draw an eye to a thing: a photo, a drawer, a window</td><td>The gentlest nudge; often the whole solution</td></tr>
+</table></div>
+<p>One shared resource: <strong>presence</strong>. It recharges slowly; loud acts spend it fast. Overspending makes people <em>afraid</em>, and fear is a legitimate outcome, not just a failure state — some hinges need someone scared out of the house. The game shouldn't judge the tone; it should judge whether the course changed.</p>
+
+<h2><span class="n">03 · CLUE DESIGN</span>Subtle by default, fair always</h2>
+<p>Clues come in four registers, and the generator mixes them per leap:</p>
+<ul>
+  <li><strong>Object clues</strong> — a packed suitcase, one place set at the table, a calendar with a circled date, a medicine bottle, an unpaid bill.</li>
+  <li><strong>Routine clues</strong> — she checks the mailbox three times a day; he avoids the upstairs room; the dog waits at the gate at 5:40.</li>
+  <li><strong>Voice clues</strong> — a phone call you only hear one side of, an argument through a wall, a radio bulletin.</li>
+  <li><strong>Echo clues</strong> — the ghost-only replay: what happened in this kitchen last Tuesday.</li>
+</ul>
+<p>Fairness rule: before a leap ships, the clue graph is walked. If a player can't reach "who / what / when / how" from at least two routes without the same clue, regenerate. A journal in the UI lets the player pin clues and form a hypothesis; the hypothesis is never graded — only the outcome is.</p>
+
+<h2><span class="n">04 · LOOK</span>"16- or 32-bit-ish" — three honest readings</h2>
+<p>Block size is not the thing that will make Ghost feel richer. Legibility of faces, objects, and rooms is. Three directions, each with a real cost:</p>
+<div class="tbl"><table>
+<tr><th>Direction</th><th>What it is</th><th>Cost</th></tr>
+<tr><td>Sub-voxel</td><td>Keep the pipeline, shrink the voxel to 0.25 m for buildings, props, and people (MagicaVoxel look). Terrain stays 1 m.</td><td>Cheap. Mixed-resolution meshing is a known trick. Characters look like toys, which suits a ghost story more than you'd think.</td></tr>
+<tr><td>Low-poly textured</td><td>PSX/N64 "32-bit": modeled props and characters, affine wobble, low-res textures.</td><td>Expensive. Needs an asset library; infinite generation becomes kit-bashing, and kit-bashing shows.</td></tr>
+<tr><td>Isometric 2.5D</td><td>SNES/Genesis "16-bit": pixel art rooms, sprite people, the whole house on one screen.</td><td>Best for reading a household at a glance. Loses the first-person "drift through the wall" feeling, which is the ghost's best trick.</td></tr>
+</table></div>
+<div class="rec"><div class="t">Recommendation</div>Sub-voxel, first person, with an era palette and a soft day/night light. It keeps everything Ad Nauseam already does, gets you real furniture and readable people within weeks, and the toy-scale bodies make the small interventions feel tender rather than grim. If it fails to charm on a test house, the interior data model carries over to isometric unchanged.</div>
+
+<h2><span class="n">05 · THE BIG FORK</span>Where the words come from</h2>
+<p>Everything else in this map is buildable offline in the browser. Story text is the one place that isn't obviously so. Three ways to go:</p>
+<div class="q">
+  <div><b>Grammar only</b><span>Tracery-style templates over the situation data. Fully offline, deterministic, always consistent with the world. Variety is finite and will show after a dozen leaps. Cheapest and safest first step.</span></div>
+  <div><b>Pre-baked packs</b><span>Use an LLM at authoring time to write thousands of era-tagged fragments (letters, arguments, diary pages) with slots the grammar fills. Ships as data. Feels hand-written, still offline, still deterministic.</span></div>
+  <div><b>Runtime LLM</b><span>Generate letters and dialogue on the fly from the live situation. Infinite and reactive; needs an API key or a small server, costs money per leap, and consistency has to be enforced. Best kept optional, layered on top of the first two.</span></div>
+</div>
+
+<h2><span class="n">06 · ARCHITECTURE</span>What the code looks like</h2>
+<div class="tbl"><table>
+<tr><th>Module</th><th>Owns</th><th>Status</th></tr>
+<tr><td><span class="k">world</span></td><td>Infinite terrain, chunks, biomes, meshing, save-by-delta</td><td>Exists (Ad Nauseam)</td></tr>
+<tr><td><span class="k">era</span></td><td>Content packs: grammars, palettes, object sets, names, idiom</td><td>New — data, not code</td></tr>
+<tr><td><span class="k">settle</span></td><td>Roads, lots, building shape grammar, landmarks</td><td>New</td></tr>
+<tr><td><span class="k">interior</span></td><td>Rooms, furniture, objects with affordances</td><td>New — first thing to build</td></tr>
+<tr><td><span class="k">people</span></td><td>Households, traits, routines, pets</td><td>New</td></tr>
+<tr><td><span class="k">story</span></td><td>Hinge, clue graph, fairness walk, outcomes</td><td>New — the heart</td></tr>
+<tr><td><span class="k">sim</span></td><td>Clock, routine runner, notice → attribute → respond</td><td>New</td></tr>
+<tr><td><span class="k">ghost</span></td><td>Abilities, presence meter, echo playback</td><td>New</td></tr>
+<tr><td><span class="k">text</span></td><td>Grammar engine, packs, optional LLM adapter</td><td>New — see §05</td></tr>
+<tr><td><span class="k">ui</span></td><td>Journal, hypothesis board, leap transitions</td><td>New</td></tr>
+</table></div>
+<p class="note">Determinism is the whole trick: every layer is a pure function of (leap seed, player actions). That's what lets the world be infinite, saves stay tiny, and a bug be reproduced from a seed string.</p>
+
+<h2><span class="n">07 · VERTICAL SLICE</span>One house, one hinge</h2>
+<p>Before any breadth: a single era (I'd pick the 1950s small town — rich object language, strong routines, phones but no screens), one generated house, one household of two or three plus a pet, one hinge, one full loop from wake to release. Sub-voxel look. Grammar-only text. If that thirty-minute experience isn't good, more eras won't save it; if it is, every layer above is just more data.</p>
+<p class="mono">Rough order: interior + objects → people + routines → ghost kinetic/attention → one hand-authored hinge → clue graph + fairness walk → then make the hinge generated.</p>
+
+<h2><span class="n">08 · OPEN QUESTIONS</span>Decisions that change the build</h2>
+<div class="q">
+  <div><b>Camera.</b><span>First-person ghost, as now? It's the strongest argument for staying 3D. <i>Assuming yes unless you say otherwise.</i></span></div>
+  <div><b>Words.</b><span>Grammar-only to start, pre-baked packs when it works, runtime LLM as an optional layer later? <i>This is the fork I most want your call on.</i></span></div>
+  <div><b>Clock and failure.</b><span>Does the world run on real hours with a hinge deadline, and can a haunting go wrong — push someone onto a worse course? <i>I'd say yes to both; failure is what makes subtlety matter.</i></span></div>
+  <div><b>The ghost's own story.</b><span>Does something carry across leaps — who you were, why you're here — accreting as a meta-mystery? <i>Cheap to add, big for retention. Your call on whether it's in the slice.</i></span></div>
+</div>
+
+<footer>Ad Nauseam is the terrain layer of this plan and stays as-is. Next build after your answers: the interior/object module and a hand-authored 1950s house to stand in.</footer>
+</div>

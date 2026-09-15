@@ -1,0 +1,12 @@
+const {chromium}=require('playwright');
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});const p=await b.newPage({viewport:{width:1100,height:700}});
+p.on('pageerror',e=>console.log('ERR:',e.message));
+await p.goto('file://'+__dirname+'/../index.html');await p.waitForTimeout(3000);
+await p.evaluate(()=>{localStorage.clear();window.__ghost.startLeap('biscuit');});await p.waitForTimeout(1500);
+await p.evaluate(()=>{document.getElementById('open').click();});await p.waitForTimeout(300);
+await p.evaluate(()=>{const G=window.__ghost;G.setPaused(false);G.clock.speed=60;});
+await p.waitForTimeout(2500);
+await p.evaluate(()=>{const G=window.__ghost;G.clock.speed=1;const L=G.lot;const a=G.people[0],b=G.people[1],d=G.pets[0];const base=L.world(L.gateX-6,0,110);a.routine=[];b.routine=[];d.routine=[];a.busy={type:'look',until:1e9};b.busy={type:'look',until:1e9};d.busy={type:'look',until:1e9};a.path=null;b.path=null;a.place(new THREE.Vector3(base.x,base.y,base.z));a.yaw=0;a.pose='stand';a.sync();b.place(new THREE.Vector3(base.x+1.2,base.y,base.z));b.yaw=0;b.pose='sit';b.sync();d.place(new THREE.Vector3(base.x+2.4,base.y,base.z));d.yaw=0.5;d.sync();G.ghost.x=base.x+1.2;G.ghost.z=base.z+3.2;G.ghost.y=base.y+1.4;G.ghost.yaw=0;G.ghost.pitch=-0.15;});
+await p.waitForTimeout(1500);await p.screenshot({path:'g4.png'});
+console.log(await p.evaluate(()=>window.__ghost.people.map(x=>x.name+'@'+x.room()+':'+x.pose+':'+x.open).join(', ')+' | '+document.getElementById('clock').innerText.replace('\n',' ')));
+await b.close();})();
