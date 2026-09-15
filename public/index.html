@@ -19,6 +19,7 @@
   #plabel{top:20px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
   #jbtn{position:fixed;top:12px;right:12px;z-index:3;pointer-events:auto;background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:4px;font:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(4px)}
   #jbtn b{color:var(--lamp);font-weight:500}
+  #mbtn{position:fixed;top:12px;right:118px;z-index:3;pointer-events:auto;background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);padding:8px 12px;border-radius:4px;font:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(4px)}
   #jbtn.pulse{border-color:var(--lamp);box-shadow:0 0 0 3px rgba(232,176,74,.25)}
   .o .seed input{width:12ch}
   .o .seed button.quiet{border-color:var(--line);color:var(--ink-dim)}
@@ -100,7 +101,7 @@
 
 <div id="clock" class="hud"><b id="clk">—</b><span id="day">—</span></div>
 <div id="presence" class="hud"><i id="pbar"></i></div><div id="plabel" class="hud">presence</div>
-<button id="jbtn">Journal <b id="jcount"></b></button>
+<button id="jbtn">Journal <b id="jcount"></b></button><button id="mbtn" title="Esc">Menu</button>
 <div id="cross" class="hud"></div><div id="ring" class="hud"></div>
 <div id="focus" class="hud"></div>
 <div id="subs" class="hud"></div>
@@ -1114,7 +1115,7 @@ function applySky(){ const h=(clock.min/60)%24; let i=0; while(i<SKYK.length-2&&
 
 // ═══════════════════════════ INPUT ═══════════════════════════
 const keys={}; let paused=true, isTouch=matchMedia('(pointer:coarse)').matches; let attending=false;
-addEventListener('keydown',e=>{ if(paused)return; keys[e.code]=true; if(/^Digit[1-5]$/.test(e.code)){ghost.sel=+e.code[5]-1;renderAbil();} if(e.code==='KeyE'){if(ABIL[ghost.sel].id==='attend')attending=true;else if(!e.repeat)useAbility();} if(e.code==='KeyJ'){toggleJournal();} if(e.code==='KeyM'){AU.toggleMute();} if(e.code==='Tab'){e.preventDefault();freeCursor();} if(e.code==='KeyQ')setSpeed('linger'); if(e.code==='KeyR')setSpeed('skip'); if(e.code==='Space')e.preventDefault(); });
+addEventListener('keydown',e=>{ if(e.code==='Escape'&&!paused&&!overlayBusy){e.preventDefault();cursorFree=false;if(document.pointerLockElement===canvas){document.exitPointerLock();}else{showPause();}return;} if(paused)return; keys[e.code]=true; if(/^Digit[1-5]$/.test(e.code)){ghost.sel=+e.code[5]-1;renderAbil();} if(e.code==='KeyE'){if(ABIL[ghost.sel].id==='attend')attending=true;else if(!e.repeat)useAbility();} if(e.code==='KeyJ'){toggleJournal();} if(e.code==='KeyM'){AU.toggleMute();} if(e.code==='Tab'){e.preventDefault();freeCursor();} if(e.code==='KeyQ')setSpeed('linger'); if(e.code==='KeyR')setSpeed('skip'); if(e.code==='Space')e.preventDefault(); });
 addEventListener('keyup',e=>{keys[e.code]=false; if(e.code==='KeyE'){attending=false;ghost.charging=0;$('ring').style.opacity=0;} if(e.code==='KeyQ'||e.code==='KeyR')setSpeed('normal');});
 canvas.addEventListener('mousedown',e=>{ if(isTouch)return; if(document.pointerLockElement!==canvas){if(!paused)canvas.requestPointerLock();return;} if(e.button===0){if(ABIL[ghost.sel].id==='attend')attending=true;else useAbility();} if(e.button===2){ghost.sel=0;renderAbil();attending=true;} });
 addEventListener('mouseup',()=>{attending=false;ghost.charging=0;$('ring').style.opacity=0;});
@@ -1128,7 +1129,7 @@ function setSpeed(m){clock.mode=m;clock.speed=m==='linger'?0.2:m==='skip'?10:1;$
 $('t-mute').addEventListener('pointerdown',()=>{AU.init();AU.toggleMute();});
 $('t-linger').addEventListener('pointerdown',()=>setSpeed(clock.mode==='linger'?'normal':'linger'));$('t-skip').addEventListener('pointerdown',()=>setSpeed(clock.mode==='skip'?'normal':'skip'));
 function toggleJournal(){const j=$('journal');j.hidden=!j.hidden; if(!j.hidden){document.exitPointerLock&&document.exitPointerLock();overlayBusy=true;} else {overlayBusy=false;if(!isTouch)canvas.requestPointerLock();}}
-$('jbtn').addEventListener('click',toggleJournal);$('jclose').addEventListener('click',toggleJournal);
+$('jbtn').addEventListener('click',toggleJournal);$('mbtn').addEventListener('click',()=>{if(paused)return;cursorFree=false;if(document.pointerLockElement===canvas)document.exitPointerLock();else showPause();});$('jclose').addEventListener('click',toggleJournal);
 $('hypo').addEventListener('input',e=>{try{localStorage.setItem('jq:hypo:'+seedText,e.target.value);}catch(x){}});
 // touch
 const stick={active:false,x:0,y:0,id:null,cx:0,cy:0}; const tbtn={up:false,dn:false}; let lookId=null,lookLast=null;
