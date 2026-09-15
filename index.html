@@ -19,6 +19,9 @@
   #plabel{top:20px;left:50%;transform:translateX(-50%);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
   #jbtn{position:fixed;top:12px;right:12px;z-index:3;pointer-events:auto;background:var(--panel);border:1px solid var(--line);color:var(--ink);padding:8px 12px;border-radius:4px;font:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(4px)}
   #jbtn b{color:var(--lamp);font-weight:500}
+  #jbtn.pulse{border-color:var(--lamp);box-shadow:0 0 0 3px rgba(232,176,74,.25)}
+  .o .seed input{width:12ch}
+  .o .seed button.quiet{border-color:var(--line);color:var(--ink-dim)}
   #cross{top:50%;left:50%;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.7);transform:translate(-50%,-50%);mix-blend-mode:difference}
   #ring{top:50%;left:50%;width:26px;height:26px;border-radius:50%;border:2px solid var(--spectral);transform:translate(-50%,-50%);opacity:0;transition:opacity .2s}
   #focus{top:calc(50% + 22px);left:50%;transform:translateX(-50%);text-align:center;max-width:min(420px,80vw);text-shadow:0 1px 3px rgba(0,0,0,.8)}
@@ -149,8 +152,10 @@ function fbm2(x,y,oct){let a=1,f=1,s=0,m=0;for(let o=0;o<oct;o++){s+=a*noise2(x*
 function hash(x,y,z){let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^Math.imul(z|0,2246822519)^SEED;h=Math.imul(h^h>>>13,1274126177);return((h^h>>>16)>>>0)/4294967296;}
 
 // palette: hex -> index (0 = air). Shared by every grid.
-const PAL=[null], PALC=[null], palIdx=new Map();
-function P(hex){let i=palIdx.get(hex);if(i)return i;i=PAL.length;PAL.push(hex);PALC.push([parseInt(hex.slice(1,3),16)/255,parseInt(hex.slice(3,5),16)/255,parseInt(hex.slice(5,7),16)/255]);palIdx.set(hex,i);return i;}
+const PAL=[null], PALC=[null], PTILE=[0], palIdx=new Map();
+const TILES=['plain','plaster','wood','floral','stripe','lino','tile','brick','siding','shingle','grass','gravel','fabric','metal','leaf','dirt','stone','paper','skin','hair','knit','bark','concrete','panel','glass','rug','check'];
+const TI={}; TILES.forEach((n,i)=>TI[n]=i);
+function P(hex,tile='plain'){const k=hex+'|'+tile;let i=palIdx.get(k);if(i)return i;i=PAL.length;PAL.push(hex);PTILE.push(TI[tile]??0);PALC.push([parseInt(hex.slice(1,3),16)/255,parseInt(hex.slice(3,5),16)/255,parseInt(hex.slice(5,7),16)/255]);palIdx.set(k,i);return i;}
 function shade(hex,k){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);const f=v=>clamp(Math.round(v*k),0,255).toString(16).padStart(2,'0');return '#'+f(r)+f(g)+f(b);}
 
 // Grid: dense voxel volume with palette indices
@@ -175,7 +180,7 @@ for(const F of FACES)F.axes=[0,1,2].filter(a=>F.dir[a]===0);
 const AOL=[0.55,0.72,0.86,1.0];
 // mesh a grid at voxel size s. getOutside(x,y,z) supplies neighbors beyond bounds (for terrain chunks); noiseTint adds per-voxel variation.
 function meshGrid(g,s,opts={}){
-  const {outside=null,tint=0.06,ao=true}=opts;
+  const {outside=null,tint=0.06,ao=true,origin=[0,0,0]}=opts; const UV=[],TL=[];
   const get=(x,y,z)=>{ if(x>=0&&y>=0&&z>=0&&x<g.W&&y<g.H&&z<g.D)return g.a[(x*g.D+z)*g.H+y]; return outside?outside(x,y,z):0; };
   const Pp=[],C=[],I=[];let vi=0;
   for(let x=0;x<g.W;x++)for(let z=0;z<g.D;z++){const base=(x*g.D+z)*g.H;for(let y=0;y<g.H;y++){
@@ -184,11 +189,12 @@ function meshGrid(g,s,opts={}){
       const aoV=[3,3,3,3];
       if(ao){for(let k=0;k<4;k++){const v=F.v[k];const sa=v[F.axes[0]]?1:-1,sb=v[F.axes[1]]?1:-1;const pa=[nx,ny,nz],pb=[nx,ny,nz],pc=[nx,ny,nz];pa[F.axes[0]]+=sa;pb[F.axes[1]]+=sb;pc[F.axes[0]]+=sa;pc[F.axes[1]]+=sb;
         const s1=get(pa[0],pa[1],pa[2])?1:0,s2=get(pb[0],pb[1],pb[2])?1:0,cc=get(pc[0],pc[1],pc[2])?1:0;aoV[k]=(s1&&s2)?0:3-(s1+s2+cc);}}
-      for(let k=0;k<4;k++){const v=F.v[k];Pp.push((x+v[0])*s,(y+v[1])*s,(z+v[2])*s);const b=F.shade*AOL[aoV[k]]*tn;C.push(rgb[0]*b,rgb[1]*b,rgb[2]*b);}
+      const tl=PTILE[id]; const A=F.axes[0],B=F.axes[1];
+      for(let k=0;k<4;k++){const v=F.v[k];const px=(x+v[0])*s,py=(y+v[1])*s,pz=(z+v[2])*s;Pp.push(px,py,pz);const b=F.shade*AOL[aoV[k]]*tn;C.push(rgb[0]*b,rgb[1]*b,rgb[2]*b);const w=[px+origin[0],py+origin[1],pz+origin[2]];UV.push(w[A],w[B]);TL.push(tl);}
       if(aoV[0]+aoV[2]>aoV[1]+aoV[3])I.push(vi,vi+1,vi+2,vi,vi+2,vi+3);else I.push(vi+1,vi+2,vi+3,vi+1,vi+3,vi);vi+=4;}
   }}
   const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.Float32BufferAttribute(Pp,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(C,3));geo.setIndex(I);geo.computeBoundingSphere();geo.computeBoundingBox();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(Pp,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(C,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(UV,2));geo.setAttribute('tile',new THREE.Float32BufferAttribute(TL,1));geo.setIndex(I);geo.computeBoundingSphere();geo.computeBoundingBox();
   return geo;
 }
 // Voxel model DSL: build small grids from box lists. Returns {grid, size}
@@ -200,10 +206,62 @@ const renderer=new THREE.WebGLRenderer({canvas,antialias:false,powerPreference:'
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(70,1,0.05,260);
-const MAT=new THREE.MeshBasicMaterial({vertexColors:true});
-const MAT_ECHO=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:0.45,depthWrite:false});
+// ───── procedural texture atlas: 8×8 tiles of 128 px, grayscale detail multiplied over vertex colour ─────
+function makeAtlas(){
+  const TS=128, N=8, cv=document.createElement('canvas'); cv.width=cv.height=TS*N; const cx=cv.getContext('2d'); const img=cx.createImageData(TS*N,TS*N); const d=img.data;
+  const h2=(x,y)=>{let h=Math.imul(x|0,374761393)^Math.imul(y|0,668265263)^0x5bd1e995;h=Math.imul(h^h>>>13,1274126177);return((h^h>>>16)>>>0)/4294967296;};
+  const vn=(x,y)=>{const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return lerp(lerp(h2(xi,yi),h2(xi+1,yi),u),lerp(h2(xi,yi+1),h2(xi+1,yi+1),u),v);};
+  const fb=(x,y,o=4)=>{let a=1,f=1,s=0,m=0;for(let i=0;i<o;i++){s+=a*vn(x*f,y*f);m+=a;a*=.5;f*=2;}return s/m;};
+  const W=(x,y,p)=>{ // wrap-aware sampling helpers use tile-local coords 0..TS
+    return p(x,y); };
+  const F={
+    plain:(x,y)=>0.6+0.05*(vn(x/6,y/6)-0.5),
+    plaster:(x,y)=>0.6+0.12*(fb(x/22,y/22)-0.5)+0.03*(h2(x,y)-0.5),
+    wood:(x,y)=>{const g=Math.sin((y/9+2.2*fb(x/60,y/14,3))*6.28);return 0.6+0.07*g+0.05*(vn(x/3,y/40)-0.5);},
+    floral:(x,y)=>{let v=0.62+0.03*(vn(x/5,y/5)-0.5);const gx=((y/32|0)&1)?16:0;const cxp=((x+gx)%32)-16,cyp=(y%32)-16;const r=Math.hypot(cxp,cyp);if(r<5)v-=0.13;else if(r<7)v-=0.05;const r2=Math.hypot(((x+gx+16)%32)-16,((y+16)%32)-16);if(r2<2.5)v-=0.1;return v;},
+    stripe:(x,y)=>0.6+(((x/16)|0)&1?0.05:-0.05)+0.03*(vn(x/4,y/4)-0.5)+(x%16<1?-0.06:0),
+    lino:(x,y)=>0.6+0.04*(vn(x/4,y/4)-0.5)+(h2(x*3,y*7)>0.96?-0.16:0)+(h2(x*5,y*11)>0.985?0.12:0),
+    tile:(x,y)=>{const gx=x%32,gy=y%32;return (gx<2||gy<2)?0.42:0.63+0.05*(fb(x/10,y/10,2)-0.5);},
+    brick:(x,y)=>{const row=(y/16)|0;const xx=(x+(row&1?16:0))%32;const gy=y%16;if(gy<2||xx<2)return 0.78;return 0.58+0.08*(fb(x/7,y/7,2)-0.5)+0.03*(h2(x,y)-0.5);},
+    siding:(x,y)=>{const gy=y%16;return (gy<2?0.4:gy<4?0.52:0.62+0.02*(gy/16))+0.03*(vn(x/9,y/3)-0.5);},
+    shingle:(x,y)=>{const row=(y/16)|0;const xx=(x+(row&1?16:0))%32;const gy=y%16;if(gy<2)return 0.38;if(xx<1)return 0.45;return 0.58+0.06*(fb(x/9,y/9,2)-0.5)+0.03*(h2(x,y)-0.5);},
+    grass:(x,y)=>0.55+0.14*(fb(x/5,y/9,3)-0.5)+0.12*(vn(x/2.5,y/2.5)-0.5)+(h2(x,y)>0.9?0.08:0),
+    gravel:(x,y)=>{const n=fb(x/6,y/6,3);return 0.58+0.16*(n-0.5)+(vn(x/3,y/3)>0.72?0.1:0);},
+    fabric:(x,y)=>0.6+((x&1)^(y&1)?0.035:-0.035)+0.05*(vn(x/7,y/7)-0.5),
+    metal:(x,y)=>0.6+0.06*(vn(x/2,y/24)-0.5)+0.02*(h2(x,y)-0.5),
+    leaf:(x,y)=>0.55+0.2*(fb(x/9,y/9,3)-0.5)+(h2(x,y)>0.93?0.1:0),
+    dirt:(x,y)=>0.6+0.12*(fb(x/8,y/8,3)-0.5)+0.04*(h2(x,y)-0.5),
+    stone:(x,y)=>0.6+0.14*(fb(x/14,y/14,3)-0.5)+0.03*(h2(x,y)-0.5),
+    paper:(x,y)=>0.62+0.04*(vn(x/3,y/9)-0.5)+0.02*(h2(x,y)-0.5),
+    skin:(x,y)=>0.61+0.025*(vn(x/9,y/9)-0.5),
+    hair:(x,y)=>0.58+0.1*Math.sin(x*1.7+3*vn(x/12,y/12))*0.5+0.04*(vn(x/3,y/20)-0.5),
+    knit:(x,y)=>0.6+(((x+y)&3)<2?0.04:-0.04)+0.03*(vn(x/6,y/6)-0.5),
+    bark:(x,y)=>0.56+0.14*(fb(x/5,y/26,3)-0.5)+0.05*(h2(x,y*3)-0.5),
+    concrete:(x,y)=>0.6+0.06*(fb(x/12,y/12,3)-0.5)+(h2(x,y)>0.97?-0.1:0),
+    panel:(x,y)=>{const g=Math.sin((x/7+1.5*fb(x/14,y/70,3))*6.28);return 0.6+0.06*g+(x%32<1?-0.12:0);},
+    glass:(x,y)=>0.65+0.03*(vn(x/30,y/30)-0.5),
+    rug:(x,y)=>{const r=Math.hypot((x%64)-32,(y%64)-32);return 0.6+(((r/6)|0)&1?0.06:-0.06)+0.03*(h2(x,y)-0.5);},
+    check:(x,y)=>0.6+((((x/8)|0)+((y/8)|0))&1?0.08:-0.08),
+  };
+  TILES.forEach((name,ti)=>{const fn=F[name]||F.plain;const ox=(ti%N)*TS,oy=((ti/N)|0)*TS;for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const v=clamp(fn(x,y),0,1);const i=((oy+y)*TS*N+ox+x)*4;d[i]=d[i+1]=d[i+2]=Math.round(v*255);d[i+3]=255;}});
+  cx.putImageData(img,0,0); const tex=new THREE.CanvasTexture(cv); tex.flipY=false; tex.magFilter=THREE.LinearFilter; tex.minFilter=THREE.LinearMipmapLinearFilter; tex.generateMipmaps=true; tex.anisotropy=4; return tex;
+}
+const ATLAS=makeAtlas();
+const VOX_VS=`attribute float tile; varying vec3 vC; varying vec2 vUv; varying float vT; varying float vD;
+void main(){ vC=color; vUv=uv; vT=tile; vec4 mv=modelViewMatrix*vec4(position,1.0); vD=-mv.z; gl_Position=projectionMatrix*mv; }`;
+const VOX_FS=`precision highp float; uniform sampler2D atlas; uniform vec3 tint; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar; uniform float opacity; uniform float tileM;
+varying vec3 vC; varying vec2 vUv; varying float vT; varying float vD;
+void main(){ float t=floor(vT+0.5); float tx=mod(t,8.0), ty=floor(t/8.0); vec2 f=fract(vUv/tileM); vec2 a=(vec2(tx,ty)+vec2(1.0/128.0)+f*(126.0/128.0))/8.0;
+  float dtl=texture2D(atlas,a).r; float m=0.55+0.75*dtl; vec3 c=vC*tint*m; float fg=smoothstep(fogNear,fogFar,vD); gl_FragColor=vec4(mix(c,fogColor,fg),opacity);
+  #include <encodings_fragment>
+}`;
+function voxMat(opts={}){ const u={atlas:{value:ATLAS},tint:{value:new THREE.Color(1,1,1)},fogColor:{value:new THREE.Color(0.6,0.7,0.8)},fogNear:{value:60},fogFar:{value:180},opacity:{value:opts.opacity??1},tileM:{value:opts.tileM??1.0}};
+  const m=new THREE.ShaderMaterial({uniforms:u,vertexShader:VOX_VS,fragmentShader:VOX_FS,vertexColors:true,transparent:!!opts.transparent,depthWrite:opts.depthWrite??true}); m.color=u.tint.value; return m; }
+const MAT=voxMat({tileM:1.0});
+const MAT_ECHO=voxMat({transparent:true,opacity:0.45,depthWrite:false,tileM:0.5});
 const MAT_GLASS=new THREE.MeshBasicMaterial({color:0xbcd6e6,transparent:true,opacity:0.28,depthWrite:false});
-const MAT_IN=new THREE.MeshBasicMaterial({vertexColors:true}); // props + people: lamplight at night
+const MAT_IN=voxMat({tileM:0.5}); // props + people: lamplight at night, finer texture scale
+const VOXMATS=[MAT,MAT_ECHO,MAT_IN];
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}
 addEventListener('resize',resize);resize();
 const skyCol=new THREE.Color();
@@ -213,7 +271,7 @@ scene.background=skyCol; scene.fog=new THREE.Fog(skyCol.clone(),60,180);
 const YG=30;                       // top ground block; surface plane is y = YG+1
 const CS=16, TH=64;
 const T={grass:0,dirt:0,stone:0,gravel:0,verge:0,trunk:0,leaf:0,water:0,path:0};
-function initTerrainPal(){T.grass=P('#5b9a45');T.dirt=P('#6f5638');T.stone=P('#7f8386');T.gravel=P('#8e887b');T.verge=P('#7fa15a');T.trunk=P('#54412c');T.leaf=P('#3a7a35');T.water=P('#3b74b8');T.path=P('#a29c8f');}
+function initTerrainPal(){T.grass=P('#5b9a45','grass');T.dirt=P('#6f5638','dirt');T.stone=P('#7f8386','stone');T.gravel=P('#8e887b','gravel');T.verge=P('#7fa15a','grass');T.trunk=P('#54412c','bark');T.leaf=P('#3a7a35','leaf');T.water=P('#3b74b8','glass');T.path=P('#a29c8f','stone');}
 const ROAD={z0:20,z1:26};          // gravel road runs along x
 const FLAT={x0:-80,x1:80,z0:-40,z1:52,blend:34};
 const hCache=new Map();
@@ -248,18 +306,31 @@ function buildTerrain(R){
   for(let cx=-R;cx<R;cx++)for(let cz=-R;cz<R;cz++){
     const g=genTerrainChunk(cx,cz);
     const outside=(x,y,z)=>{if(y<0||y>=TH)return 0;const wx=cx*CS+x,wz=cz*CS+z;return terrainBlock(wx,y,wz);};
-    const geo=meshGrid(g,1,{outside,tint:0.05});
+    const geo=meshGrid(g,1,{outside,tint:0.05,origin:[cx*CS,0,cz*CS]});
     const m=new THREE.Mesh(geo,MAT); m.position.set(cx*CS,0,cz*CS); scene.add(m); terrainChunks.set(cx+','+cz,m);
   }
 }
 
 // ═══════════════════════════ LOT + HOUSE (0.25 m voxels) ═══════════════════════════
 const V=0.25, LW=128, LH=44, LD=128;
-const ERA={ // 1950s small town palette
-  siding:['#efe9d6','#e9e3b8','#d9e6d4','#e7d9c2','#dfe7ea'], trim:['#f6f3ea','#3f4a3f','#6b3f3a'], roof:['#5d6266','#4f5a4b','#6a5a4a'],
-  paint:['#f0e2c8','#dfe7dc','#f2d9d0','#e3e6ef','#efe6b8','#d9e4e8'], wood:['#a4763f','#8b6538'], lino:['#e8e2cc','#7fa79b'], tile:['#e7ecee','#b9cfd6'],
-  brick:'#8f4d3c', ceiling:'#f4f1e8', fence:'#e8e2d2', porch:'#b7b3a8', floorDark:'#6b4a2a',
+const ERAS={
+  1928:{year:1928, siding:['#d9cfb5','#c3bda6','#e6dcc3','#8f8a78','#b9a98a'], sidingTile:'siding', trim:['#4a3f33','#f1ebdc'], roof:['#5b5148','#6e6259','#4a4a4a'],
+    paint:['#e8dcc0','#d8cbb0','#cbbfa4','#e2d3c6','#d9d3b8'], wallTiles:['floral','floral','stripe','plaster'], wood:['#8a5a2b','#6e4a25'], lino:['#d9cdb0','#7a5f3d'], tile:['#e7e2d3','#9aa39e'],
+    brick:'#7f4536', ceiling:'#efe9da', fence:'#d9d3c3', porch:'#9c968a', cars:['#2b2b2b','#3a3a3a','#4a4a44'], months:['April','May','September','October'],
+    names:{f:['Mabel','Edna','Pearl','Hazel','Lois'],m:['Earl','Clarence','Roy','Lester','Homer'],fy:['Ruth','Dorothy','Helen','Alice'],my:['Walter','Harold','Frank','Lloyd']},
+    phone:'A candlestick telephone. The operator knows everyone\'s business.', radio:'A Crosley. Nobody touches the dial but her.', fridge:'The icebox. The ice man comes Tuesdays and Fridays.', tv:false, paper:'The Record-Eagle. Kerosene stove fire on Elm Street; family safe.'},
+  1954:{year:1954, siding:['#efe9d6','#e9e3b8','#d9e6d4','#e7d9c2','#dfe7ea'], sidingTile:'siding', trim:['#f6f3ea','#3f4a3f','#6b3f3a'], roof:['#5d6266','#4f5a4b','#6a5a4a'],
+    paint:['#f0e2c8','#dfe7dc','#f2d9d0','#e3e6ef','#efe6b8','#d9e4e8'], wallTiles:['plaster','plaster','stripe','floral'], wood:['#a4763f','#8b6538'], lino:['#e8e2cc','#7fa79b'], tile:['#e7ecee','#b9cfd6'],
+    brick:'#8f4d3c', ceiling:'#f4f1e8', fence:'#e8e2d2', porch:'#b7b3a8', cars:['#6f8f7a','#b9c9d1','#8b3a33','#d9c98a','#3f4f6b'], months:['May','June','September','October'],
+    names:{f:['Ruth','Edna','Mabel','Lois','Irene','Dorothy'],m:['Harold','Walter','Earl','Clarence','Roy'],fy:['Margaret','June','Carol','Nancy','Joan','Alice'],my:['Frank','Walter','Donald','Gene','Ray']},
+    phone:'Party line. Two longs and a short.', radio:'A Philco. Warm to the touch in the evenings.', fridge:'Hums. A list on the door.', tv:false, paper:'The Record-Eagle. Weather: fair, cooler toward evening. The bus schedule is on page six.'},
+  1981:{year:1981, siding:['#c9b48a','#b9c9b0','#d8d3c9','#a89f8c','#d9b98a'], sidingTile:'panel', trim:['#ffffff','#4a3a2a'], roof:['#4b4b4b','#6a5a4a','#3a3a3a'],
+    paint:['#efe9d8','#d8c9a8','#c9d8c9','#f0e0c0','#e8e0d0'], wallTiles:['plaster','panel','panel','stripe'], wood:['#a06c33','#c99a5a'], lino:['#d9d3c0','#b98a5a'], tile:['#f0f0e8','#a8c8b8'],
+    brick:'#9a5a48', ceiling:'#f6f3ec', fence:'#c9b48a', porch:'#a8a49a', cars:['#b9432a','#d9c98a','#6f8f7a','#2a3a5a','#8a8a8a'], months:['May','June','September','October'],
+    names:{f:['Carol','Linda','Debbie','Nancy','Sharon'],m:['Gary','Dennis','Rick','Dale','Ron'],fy:['Jennifer','Amy','Heather','Michelle'],my:['Mike','Danny','Jason','Kevin']},
+    phone:'Wall phone, long cord, stretched halfway to the table.', radio:'The TV. Rabbit ears and a coat hanger.', fridge:'Avocado green. Magnets. A school photo.', tv:true, paper:'The Record-Eagle. Greyhound schedule on page nine; the 11:20 goes through to Detroit.'},
 };
+let ERA=ERAS[1954], era=ERA;
 class Lot{
   constructor(ox,oz,seed,full){this.ox=ox;this.oz=oz;this.oy=YG+1;this.full=full;this.g=new Grid(LW,LH,LD);this.rooms={};this.props=[];this.seed=seed;lotRects.push({x0:ox,x1:ox+LW*V,z0:oz,z1:oz+LD*V});}
   world(x,y,z){return new THREE.Vector3(this.ox+x*V,this.oy+y*V,this.oz+z*V);}
@@ -270,7 +341,7 @@ function genHouse(lot){
   const R=(a,b)=>a+Math.floor(r()*(b-a+1)), PK=a=>a[Math.floor(r()*a.length)];
   const W=R(46,54), D=R(32,38);
   const x0=Math.floor((LW-W)/2)+R(-6,6), z0=92-D;
-  const c={siding:P(PK(ERA.siding)),trim:P(PK(ERA.trim)),roof:P(PK(ERA.roof)),ceil:P(ERA.ceiling),brick:P(ERA.brick),fence:P(ERA.fence),porch:P(ERA.porch),path:P('#a9a397'),glass:P('#bcd6e6'),door:P('#5b3a2a'),step:P('#9d9a90')};
+  const c={siding:P(PK(ERA.siding),ERA.sidingTile||'siding'),trim:P(PK(ERA.trim),'wood'),roof:P(PK(ERA.roof),'shingle'),ceil:P(ERA.ceiling,'plaster'),brick:P(ERA.brick,'brick'),fence:P(ERA.fence,'wood'),porch:P(ERA.porch,'concrete'),path:P('#a9a397','stone'),glass:P('#bcd6e6','glass'),door:P('#5b3a2a','wood'),step:P('#9d9a90','concrete')};
   const FL=2, WT=12; // floor top y, wall top y (exclusive)
   // slab
   g.box(x0,0,z0,W,2,D,P('#8d8b84'));
@@ -281,19 +352,19 @@ function genHouse(lot){
   const wa=Math.round((W-2)*0.40); const xh0=x0+1+wa+1; const xh1=xh0+6; // hall [xh0,xh1)
   const zb=zs-12;                // bath/bedB split
   const rooms=lot.rooms;
-  rooms.living={x0:x0+1,x1:xs,z0:zs+1,z1:z0+D-1,name:'living room',paint:P(PK(ERA.paint)),floor:'wood'};
-  rooms.kitchen={x0:xs+1,x1:x0+W-1,z0:zs+1,z1:z0+D-1,name:'kitchen',paint:P(PK(ERA.paint)),floor:'lino'};
-  rooms.bedA={x0:x0+1,x1:xh0-1,z0:z0+1,z1:zs,name:'front bedroom',paint:P(PK(ERA.paint)),floor:'wood'};
-  rooms.hall={x0:xh0,x1:xh1,z0:z0+1,z1:zs,name:'hall',paint:P(PK(ERA.paint)),floor:'wood'};
-  rooms.bath={x0:xh1+1,x1:x0+W-1,z0:zb+1,z1:zs,name:'bathroom',paint:P(PK(ERA.tile)),floor:'tile'};
-  rooms.bedB={x0:xh1+1,x1:x0+W-1,z0:z0+1,z1:zb,name:'back bedroom',paint:P(PK(ERA.paint)),floor:'wood'};
+  rooms.living={x0:x0+1,x1:xs,z0:zs+1,z1:z0+D-1,name:'living room',paint:P(PK(ERA.paint),PK(ERA.wallTiles||['plaster','floral','stripe'])),floor:'wood'};
+  rooms.kitchen={x0:xs+1,x1:x0+W-1,z0:zs+1,z1:z0+D-1,name:'kitchen',paint:P(PK(ERA.paint),PK(ERA.wallTiles||['plaster','floral','stripe'])),floor:'lino'};
+  rooms.bedA={x0:x0+1,x1:xh0-1,z0:z0+1,z1:zs,name:'front bedroom',paint:P(PK(ERA.paint),PK(ERA.wallTiles||['plaster','floral','stripe'])),floor:'wood'};
+  rooms.hall={x0:xh0,x1:xh1,z0:z0+1,z1:zs,name:'hall',paint:P(PK(ERA.paint),PK(ERA.wallTiles||['plaster','floral','stripe'])),floor:'wood'};
+  rooms.bath={x0:xh1+1,x1:x0+W-1,z0:zb+1,z1:zs,name:'bathroom',paint:P(PK(ERA.tile),'tile'),floor:'tile'};
+  rooms.bedB={x0:xh1+1,x1:x0+W-1,z0:z0+1,z1:zb,name:'back bedroom',paint:P(PK(ERA.paint),PK(ERA.wallTiles||['plaster','floral','stripe'])),floor:'wood'};
   // floors
-  const wood1=P(PK(ERA.wood)),wood2=P(shade(PAL[wood1],0.88)),lino1=P(ERA.lino[0]),lino2=P(ERA.lino[1]),tile1=P(ERA.tile[0]),tile2=P(ERA.tile[1]);
+  const wood1=P(PK(ERA.wood),'wood'),wood2=P(shade(PAL[wood1],0.88),'wood'),lino1=P(ERA.lino[0],'lino'),lino2=P(ERA.lino[1],'lino'),tile1=P(ERA.tile[0],'tile'),tile2=P(ERA.tile[1],'tile');
   for(const k in rooms){const rm=rooms[k];for(let x=rm.x0;x<rm.x1;x++)for(let z=rm.z0;z<rm.z1;z++){let v;if(rm.floor==='wood')v=(Math.floor(x/1)%6<3)?wood1:wood2;else if(rm.floor==='lino')v=((x+z)&1)?lino1:lino2;else v=((Math.floor(x/2)+Math.floor(z/2))&1)?tile1:tile2;g.set(x,FL-1,z,v);}}
   // exterior walls
   g.box(x0,FL,z0,W,WT-FL,1,c.siding); g.box(x0,FL,z0+D-1,W,WT-FL,1,c.siding); g.box(x0,FL,z0,1,WT-FL,D,c.siding); g.box(x0+W-1,FL,z0,1,WT-FL,D,c.siding);
   // interior walls
-  const wallc=P('#e9e4d8');
+  const wallc=P('#e9e4d8','plaster');
   g.box(x0+1,FL,zs,W-2,WT-FL,1,wallc);          // front/back split
   g.box(xs,FL,zs+1,1,WT-FL,df,wallc);            // living | kitchen
   g.box(xh0-1,FL,z0+1,1,WT-FL,zs-z0-1,wallc);    // bedA | hall
@@ -343,7 +414,7 @@ function genHouse(lot){
   for(let z=0;z<fz;z+=3){g.box(0,0,z,1,4,1,c.fence);g.box(LW-1,0,z,1,4,1,c.fence);}
   for(let z=0;z<fz;z++){g.box(0,2,z,1,1,1,c.fence);g.box(LW-1,2,z,1,1,1,c.fence);}
   // yard tree (0.25 m voxels)
-  const tx=R(8,20), tz=R(10,40); const tr=P('#5a4630'),lf=P(PK(['#3f8a3a','#4c8f3a','#8a7a2c']));
+  const tx=R(8,20), tz=R(10,40); const tr=P('#5a4630','bark'),lf=P(PK(['#3f8a3a','#4c8f3a','#8a7a2c']),'leaf');
   g.box(tx,0,tz,2,20,2,tr); for(let x=-10;x<=10;x++)for(let y=-7;y<=7;y++)for(let z=-10;z<=10;z++){if(x*x*0.9+y*y*1.6+z*z*0.9<=100&&hash(x+tx,y,z+tz)>0.15)g.set(tx+1+x,20+y,tz+1+z,lf);}
   rooms.yard={x0:Math.max(2,x0-12),x1:Math.min(LW-2,x0+W+12),z0:pz0+pd+2,z1:LD-6,name:'the front yard'};
   lot.house={x0,z0,W,D,FL,WT,zs,xs};
@@ -366,10 +437,10 @@ function rotateGrid(g,times){ // rotate about y, clockwise seen from above, `tim
 const S8=0.125; // fine scale
 let PC={}; // per-lot prop colors
 function propColors(r){const PK=a=>a[Math.floor(r()*a.length)];return{
-  wood:P(PK(['#8a5a2b','#a06c33','#6e4a25'])),woodD:P('#4e3418'),fabric:P(PK(['#7a8a5c','#8c5a4a','#5b6f8a','#a08a55'])),fabric2:P(PK(['#c9b48a','#b8b0a0'])),
-  cream:P('#efe8d4'),white:P('#f4f2ec'),metal:P('#b9bcc0'),chrome:P('#dfe3e6'),black:P('#1e1e20'),red:P('#b9342a'),paper:P('#f1ead5'),amber:P('#c8842a'),
-  blanket:P(PK(['#8fa8c9','#c98f8f','#a9c99a','#d1b26b'])),pillow:P('#f7f4ec'),brick:P('#8f4d3c'),soot:P('#2a2523'),glass:P('#a9c9dc'),brass:P('#c9a24a'),
-  car:P(PK(['#6f8f7a','#b9c9d1','#8b3a33','#d9c98a','#3f4f6b'])),tire:P('#2b2b2b'),green:P('#4c7a3a'),skin:P('#e7c2a2'),
+  wood:P(PK(['#8a5a2b','#a06c33','#6e4a25']),'wood'),woodD:P('#4e3418','wood'),fabric:P(PK(['#7a8a5c','#8c5a4a','#5b6f8a','#a08a55']),'fabric'),fabric2:P(PK(['#c9b48a','#b8b0a0']),'fabric'),
+  cream:P('#efe8d4'),white:P('#f4f2ec'),metal:P('#b9bcc0','metal'),chrome:P('#dfe3e6','metal'),black:P('#1e1e20'),red:P('#b9342a','fabric'),paper:P('#f1ead5','paper'),amber:P('#c8842a','glass'),
+  blanket:P(PK(['#8fa8c9','#c98f8f','#a9c99a','#d1b26b']),'knit'),pillow:P('#f7f4ec','fabric'),brick:P('#8f4d3c','brick'),soot:P('#2a2523'),glass:P('#a9c9dc','glass'),brass:P('#c9a24a','metal'),
+  car:P(PK(era.cars),'metal'),tire:P('#2b2b2b'),green:P('#4c7a3a','leaf'),skin:P('#e7c2a2','skin'),rug:P('#a04a3a','rug'),rug2:P('#d9c9a3','rug'),check:P('#c9423a','check'),
 };}
 const PROPS={
   sofa:{s:V,W:8,H:3,D:3,b:(g,c)=>{g.box(0,0,0,8,2,3,c.fabric);g.box(0,2,0,8,1,1,c.fabric);g.box(0,2,0,1,1,3,c.fabric);g.box(7,2,0,1,1,3,c.fabric);g.box(1,1,1,6,1,2,c.fabric2);}},
@@ -380,12 +451,12 @@ const PROPS={
   bookshelf:{s:V,W:6,H:8,D:2,b:(g,c)=>{g.box(0,0,0,6,8,2,c.wood);for(let y=1;y<7;y+=2)for(let x=1;x<5;x++)g.box(x,y,1,1,1,1,[c.red,c.green,c.blanket,c.paper][(x+y)%4]);g.box(1,7,1,4,1,1,0);}},
   fireplace:{s:V,W:10,H:9,D:2,b:(g,c)=>{g.box(1,0,0,8,8,2,c.brick);g.box(3,0,1,4,4,1,c.soot);g.box(0,8,0,10,1,2,c.wood);}},
   picture:{s:S8,W:6,H:5,D:1,wall:true,b:(g,c)=>{g.box(0,0,0,6,5,1,c.woodD);g.box(1,1,0,4,3,1,c.fabric2);g.box(2,2,0,2,1,1,c.green);}},
-  rug:{s:V,W:10,H:1,D:7,walk:true,b:(g,c)=>{g.box(0,0,0,10,1,7,c.red);g.box(1,0,1,8,1,5,c.fabric2);g.box(3,0,2,4,1,3,c.red);}},
+  rug:{s:V,W:10,H:1,D:7,walk:true,b:(g,c)=>{g.box(0,0,0,10,1,7,c.rug);g.box(1,0,1,8,1,5,c.rug2);g.box(3,0,2,4,1,3,c.rug);}},
   counter:{s:V,W:12,H:4,D:3,b:(g,c)=>{g.box(0,0,0,12,3,3,c.white);g.box(0,3,0,12,1,3,c.wood);for(let x=3;x<12;x+=4)g.box(x,0,2,1,3,1,c.metal);g.box(1,3,1,3,1,1,c.metal);g.box(9,2,0,1,2,1,c.chrome);}},
   cupboard:{s:V,W:8,H:4,D:2,wall:true,b:(g,c)=>{g.box(0,0,0,8,4,2,c.white);g.box(3,0,1,1,4,1,c.metal);g.box(2,1,1,1,1,1,c.brass);g.box(5,1,1,1,1,1,c.brass);}},
   stove:{s:S8,W:8,H:8,D:6,b:(g,c)=>{g.box(0,0,0,8,8,6,c.white);g.box(0,7,0,8,1,6,c.black);g.box(1,8,1,2,1,2,c.metal);g.box(5,8,1,2,1,2,c.metal);g.box(1,8,3,2,1,2,c.metal);g.box(5,8,3,2,1,2,c.metal);g.box(1,3,5,6,3,1,c.metal);g.box(2,6,5,1,1,1,c.black);g.box(5,6,5,1,1,1,c.black);}},
   fridge:{s:V,W:3,H:7,D:3,b:(g,c)=>{g.box(0,0,0,3,7,3,c.cream);g.box(2,2,2,1,3,1,c.chrome);}},
-  table:{s:V,W:6,H:3,D:4,b:(g,c)=>{g.box(0,2,0,6,1,4,c.wood);g.set(0,0,0,c.woodD);g.set(5,0,0,c.woodD);g.set(0,0,3,c.woodD);g.set(5,0,3,c.woodD);g.set(0,1,0,c.woodD);g.set(5,1,0,c.woodD);g.set(0,1,3,c.woodD);g.set(5,1,3,c.woodD);}},
+  table:{s:V,W:6,H:3,D:4,b:(g,c)=>{g.box(0,2,0,6,1,4,c.check);g.set(0,0,0,c.woodD);g.set(5,0,0,c.woodD);g.set(0,0,3,c.woodD);g.set(5,0,3,c.woodD);g.set(0,1,0,c.woodD);g.set(5,1,0,c.woodD);g.set(0,1,3,c.woodD);g.set(5,1,3,c.woodD);}},
   chair:{s:S8,W:4,H:9,D:4,b:(g,c)=>{g.box(0,4,0,4,1,4,c.wood);g.box(0,5,0,4,4,1,c.wood);g.box(0,0,0,1,4,1,c.woodD);g.box(3,0,0,1,4,1,c.woodD);g.box(0,0,3,1,4,1,c.woodD);g.box(3,0,3,1,4,1,c.woodD);}},
   cup:{s:S8,W:3,H:2,D:2,move:true,fragile:true,b:(g,c)=>{g.box(0,0,0,2,2,2,c.white);g.set(2,1,0,c.white);}},
   plate:{s:S8,W:3,H:1,D:3,move:true,fragile:true,b:(g,c)=>{g.box(0,0,0,3,1,3,c.white);}},
@@ -418,6 +489,23 @@ const PROPS={
   suitcase:{s:S8,W:6,H:4,D:2,move:true,b:(g,c)=>{g.box(0,0,0,6,4,2,c.wood);g.box(2,4,0,2,1,2,c.woodD);g.box(0,2,0,6,1,2,c.woodD);}},
   toy:{s:S8,W:3,H:2,D:5,move:true,b:(g,c)=>{g.box(0,0,0,3,2,5,c.red);g.set(0,0,1,c.black);g.set(2,0,1,c.black);g.set(0,0,3,c.black);g.set(2,0,3,c.black);}},
   hammer:{s:S8,W:2,H:1,D:5,move:true,b:(g,c)=>{g.box(0,0,0,1,1,5,c.wood);g.box(0,0,4,2,1,1,c.metal);}},
+  curtain:{s:S8,W:14,H:12,D:1,wall:true,b:(g,c)=>{g.box(0,11,0,14,1,1,c.brass);g.box(0,0,0,3,11,1,c.fabric2);g.box(11,0,0,3,11,1,c.fabric2);g.box(1,4,0,1,1,1,c.brass);g.box(12,4,0,1,1,1,c.brass);}},
+  books:{s:S8,W:4,H:3,D:3,move:true,b:(g,c)=>{g.box(0,0,0,4,1,3,c.red);g.box(0,1,0,3,1,3,c.blanket);g.box(1,2,0,3,1,2,c.green);}},
+  tableLamp:{s:S8,W:4,H:7,D:4,move:true,b:(g,c)=>{g.box(1,0,1,2,1,2,c.brass);g.box(1,1,1,1,3,1,c.brass);g.box(0,4,0,4,3,4,c.cream);g.box(1,6,1,2,1,2,0);}},
+  canisters:{s:S8,W:7,H:3,D:2,move:true,b:(g,c)=>{g.box(0,0,0,2,3,2,c.cream);g.box(3,0,0,2,2,2,c.cream);g.box(6,0,0,1,2,2,c.cream);g.box(0,2,0,2,1,2,c.red);g.box(3,1,0,2,1,2,c.red);}},
+  breadbox:{s:S8,W:6,H:4,D:4,move:true,b:(g,c)=>{g.box(0,0,0,6,4,4,c.wood);g.box(0,1,3,6,3,1,c.woodD);g.box(2,2,3,2,1,1,c.brass);}},
+  broom:{s:S8,W:2,H:12,D:2,move:true,b:(g,c)=>{g.box(0,3,0,1,9,1,c.wood);g.box(0,0,0,2,3,2,c.amber);}},
+  boots:{s:S8,W:4,H:3,D:3,move:true,b:(g,c)=>{g.box(0,0,0,1,3,3,c.woodD);g.box(3,0,0,1,3,3,c.woodD);g.box(0,0,2,1,1,1,c.black);g.box(3,0,2,1,1,1,c.black);}},
+  rocker:{s:V,W:3,H:4,D:3,b:(g,c)=>{g.box(0,1,0,3,1,3,c.wood);g.box(0,2,0,3,2,1,c.wood);g.box(0,0,0,1,1,3,c.woodD);g.box(2,0,0,1,1,3,c.woodD);}},
+  trashcan:{s:V,W:2,H:3,D:2,b:(g,c)=>{g.box(0,0,0,2,3,2,c.metal);g.box(0,2,0,2,1,2,c.chrome);}},
+  bicycle:{s:S8,W:2,H:6,D:12,move:true,b:(g,c)=>{g.box(0,0,0,2,4,4,c.black);g.box(0,0,8,2,4,4,c.black);g.box(0,1,1,2,2,2,c.metal);g.box(0,1,9,2,2,2,c.metal);g.box(0,3,2,1,2,8,c.red);g.box(0,5,3,2,1,1,c.metal);g.box(0,5,8,2,1,2,c.woodD);}},
+  porchLight:{s:S8,W:3,H:4,D:2,wall:true,b:(g,c)=>{g.box(0,0,0,3,4,2,c.black);g.box(1,1,0,1,2,2,c.amber);}},
+  tv:{s:V,W:4,H:4,D:3,b:(g,c)=>{g.box(0,0,0,4,4,3,c.wood);g.box(1,1,2,2,2,1,c.glass);g.set(3,2,2,c.brass);g.set(3,1,2,c.brass);}},
+  wallPhoto:{s:S8,W:4,H:5,D:1,wall:true,b:(g,c)=>{g.box(0,0,0,4,5,1,c.brass);g.box(1,1,0,2,3,1,c.fabric2);g.set(1,2,0,c.skin);}},
+  towel:{s:S8,W:5,H:1,D:4,move:true,b:(g,c)=>{g.box(0,0,0,5,1,4,c.pillow);g.box(0,0,0,1,1,4,c.soot);}},
+  note:{s:S8,W:3,H:1,D:4,move:true,b:(g,c)=>{g.box(0,0,0,3,1,4,c.paper);g.set(1,0,1,c.black);g.set(1,0,2,c.black);}},
+  ticket:{s:S8,W:3,H:1,D:2,move:true,b:(g,c)=>{g.box(0,0,0,3,1,2,c.paper);g.set(0,0,0,c.red);}},
+  jacket:{s:S8,W:4,H:8,D:2,move:true,b:(g,c)=>{g.box(0,0,0,4,8,2,c.blanket);g.box(1,6,1,2,2,1,c.fabric2);}},
 };
 let propId=0;
 class Prop{
@@ -438,7 +526,7 @@ class Prop{
 }
 // placement helpers: rooms in lot voxels; returns world pos for a prop of `type` against a wall of `room`
 function wallPos(lot,type,roomKey,wall,along,opts={}){
-  const rm=lot.rooms[roomKey], def=PROPS[type]; const rot={N:0,S:2,W:1,E:3}[wall];
+  const rm=lot.rooms[roomKey], def=PROPS[type]; const rot={N:0,S:2,W:3,E:1}[wall];
   const w=(rot%2===0?def.W:def.D)*def.s/V, d=(rot%2===0?def.D:def.W)*def.s/V; // footprint in lot voxels
   const off=opts.off||0; const y=opts.y!==undefined?opts.y:(roomKey==='porch'||roomKey==='yard'?0:lot.house.FL);
   let lx,lz;
@@ -463,7 +551,7 @@ function furnish(lot,cast){
   K.sofa=addProp(lot,'sofa','living','S',0.15,{name:'the davenport',desc:'Worn on one cushion more than the other.'});
   K.fireplace=addProp(lot,'fireplace','living','W',0.5,{name:'the mantel',desc:'Brick, painted once, chipped since.'});
   K.armchair=addProp(lot,'armchair','living','N',0.75,{name:'an armchair',desc:'Faces the radio, not the window.'});
-  K.radio=addProp(lot,'radio','living','N',0.2,{name:'the radio',desc:'A Philco. Warm to the touch in the evenings.',dy:0.5,tags:{sentimental:true}});
+  K.radio=era.tv?addProp(lot,'tv','living','N',0.2,{name:'the television',desc:era.radio,tags:{sentimental:true}}):addProp(lot,'radio','living','N',0.2,{name:'the radio',desc:era.radio,dy:0.5,tags:{sentimental:true}});
   K.lamp=addProp(lot,'floorLamp','living','N',0.05,{name:'a floor lamp',desc:'Fringed shade.'});
   K.rug=addProp(lot,'rug','living','N',0.45,{off:6,name:'the rug',desc:'Braided. Somebody made it.'});
   K.coffee=addProp(lot,'coffeeTable','living','S',0.2,{off:4,name:'the coffee table',desc:'Rings from cups nobody used coasters for.'});
@@ -473,20 +561,20 @@ function furnish(lot,cast){
   K.counter=addProp(lot,'counter','kitchen','N',0.5,{name:'the counter',desc:'Linoleum top, a burn mark by the sink.'});
   K.cupboard=addProp(lot,'cupboard','kitchen','N',0.5,{y:7,name:'the cupboard',desc:'Cups on the bottom shelf, good dishes above.'});
   K.stove=addProp(lot,'stove','kitchen','W',0.1,{name:'the stove',desc:'Gas. The left front burner lights on the second try.'});
-  K.fridge=addProp(lot,'fridge','kitchen','W',0.75,{name:'the icebox',desc:'Hums. A list on the door.'});
+  K.fridge=addProp(lot,'fridge','kitchen','W',0.75,{name:era.year<1940?'the icebox':'the refrigerator',desc:era.fridge});
   K.table=addProp(lot,'table','kitchen','S',0.5,{off:5,name:'the kitchen table',desc:'Oilcloth, red check.'});
   K.chair1=addProp(lot,'chair','kitchen','S',0.42,{off:3,name:'a chair',desc:''});
   K.chair2=addProp(lot,'chair','kitchen','S',0.62,{off:3,name:'a chair',desc:''});
   K.chair3=addProp(lot,'chair','kitchen','S',0.5,{off:10,name:'a chair',desc:'',rot:2});
   K.calendar=addProp(lot,'calendar','kitchen','E',0.3,{y:6,name:'the calendar',desc:'A feed store gives them out.'});
-  K.phone=addProp(lot,'wallPhone','kitchen','E',0.7,{y:6,name:'the telephone',desc:'Party line. Two longs and a short.'});
+  K.phone=addProp(lot,'wallPhone','kitchen','E',0.7,{y:6,name:'the telephone',desc:era.phone});
   K.clock=addProp(lot,'wallClock','kitchen','S',0.5,{y:9,name:'the wall clock',desc:'Runs four minutes fast, always has.'});
   K.cup1=onTop(lot,'cup',K.counter,0.2,0.5,{name:'a cup',desc:'Chipped on the rim, kept anyway.'});
   K.cup2=onTop(lot,'cup',K.counter,0.35,0.6,{name:'a cup',desc:'Church bazaar cup.'});
   K.kettle=onTop(lot,'kettle',K.stove,0.5,0.5,{name:'the kettle',desc:''});
   K.plate=onTop(lot,'plate',K.table,0.3,0.4,{name:'a plate',desc:'One place set.'});
   K.vase=onTop(lot,'vase',K.table,0.7,0.5,{name:'a vase',desc:'Zinnias from the yard, going over.'});
-  K.news=onTop(lot,'newspaper',K.table,0.5,0.8,{name:'the newspaper',desc:'',read:'The Record-Eagle. Weather: fair, cooler toward evening. The bus schedule is on page six.'});
+  K.news=onTop(lot,'newspaper',K.table,0.5,0.8,{name:'the newspaper',desc:'',read:era.paper});
   // hall
   K.hallTable=addProp(lot,'sideTable','hall','W',0.5,{name:'the hall table',desc:'One drawer. It sticks.'});
   K.mirror=addProp(lot,'mirror','hall','W',0.5,{y:6,name:'the hall mirror',desc:'You are not in it.'});
@@ -508,6 +596,22 @@ function furnish(lot,cast){
   const gx=lot.gateX; K.gate=new Prop(lot,'gate',{pos:lot.world(gx-3,0,LD-4),rot:0,room:'yard',name:'the gate',desc:'The latch is a bent nail.',state:{open:true},tags:{move:false}});
   K.mailbox=new Prop(lot,'mailbox',{pos:lot.world(gx+5,0,LD-3),rot:0,room:'yard',name:'the mailbox',desc:'Flag down.'});
   if(lot.drive&&lot.drive.x0+8<LW)K.car=new Prop(lot,'car',{pos:lot.world(lot.drive.x0+2,0,lot.drive.z0+8),rot:0,room:'yard',name:'the car',desc:'A Ford. Needs a wash.'});
+  // extra detail
+  K.books=onTop(lot,'books',K.coffee,0.3,0.5,{name:'a stack of books',desc:'A library book, overdue.'});
+  K.lampA=onTop(lot,'tableLamp',K.nightA,0.5,0.5,{name:'a lamp',desc:''});
+  K.lampB=onTop(lot,'tableLamp',K.nightB,0.5,0.5,{name:'a lamp',desc:''});
+  K.canisters=onTop(lot,'canisters',K.counter,0.72,0.5,{name:'canisters',desc:'Flour, sugar, coffee. Sugar is low.'});
+  K.breadbox=onTop(lot,'breadbox',K.counter,0.9,0.5,{name:'the breadbox',desc:''});
+  K.broom=addProp(lot,'broom','kitchen','E',0.95,{name:'a broom',desc:'Worn on one side.'});
+  K.boots=addProp(lot,'boots','hall','E',0.05,{name:'boots',desc:'Mud from somewhere that isn\'t the yard.'});
+  K.rocker=addProp(lot,'rocker','porch','N',0.85,{off:1,name:'the rocking chair',desc:'Still moving, sometimes, with nobody in it.'});
+  K.porchLight=addProp(lot,'porchLight','porch','N',0.5,{y:9,dx:0.6,name:'the porch light',desc:'Left on for somebody.'});
+  K.wallPhotoA=addProp(lot,'wallPhoto','bedA','W',0.5,{y:7,name:'a wedding portrait',desc:'Two people trying not to smile.',tags:{sentimental:true}});
+  K.trash=new Prop(lot,'trashcan',{pos:lot.world(lot.house.x0+lot.house.W+2,0,lot.house.z0+lot.house.D-6),room:'yard',name:'the trash cans',desc:''});
+  K.towel=onTop(lot,'towel',K.counter,0.55,0.9,{name:'a dish towel',desc:'Scorched at one corner.'});
+  for(const w of lot.windows){ if(w.h<4)continue; const front=w.d===1&&w.z>lot.house.z0+2, back=w.d===1&&!front, left=w.w===1&&w.x<lot.house.x0+2, right=w.w===1&&!left;
+    let pos,rot=0; if(front){pos=lot.world(w.x-2,w.y-1,w.z-1);rot=0;} else if(back){pos=lot.world(w.x-2,w.y-1,w.z+1);rot=0;} else if(left){pos=lot.world(w.x+1,w.y-1,w.z-2);rot=1;} else {pos=lot.world(w.x-0,w.y-1,w.z-2);rot=1;}
+    if(right)pos.x-=S8; new Prop(lot,'curtain',{pos,rot,room:roomAt(lot,Math.floor((pos.x-lot.ox)/V),Math.floor((pos.z-lot.oz)/V)),name:'curtains',desc:'Hemmed by hand.'}); }
   lot.K=K; return K;
 }
 
@@ -550,7 +654,7 @@ function astar(lot,s,t){
 }
 function standSpot(lot,prop){ // a walkable cell adjacent to the prop's front (or any side)
   const c=prop.center(); const [ci,cj]=cellOf(lot,c.x,c.z); const front=[[0,1],[0,-1],[1,0],[-1,0]];
-  if(prop.rot===0)front.unshift([0,1]); if(prop.rot===2)front.unshift([0,-1]); if(prop.rot===1)front.unshift([1,0]); if(prop.rot===3)front.unshift([-1,0]);
+  if(prop.rot===0)front.unshift([0,1]); if(prop.rot===2)front.unshift([0,-1]); if(prop.rot===3)front.unshift([1,0]); if(prop.rot===1)front.unshift([-1,0]);
   const rx=Math.ceil(prop.size[0]/(2*V)/2)+1, rz=Math.ceil(prop.size[2]/(2*V)/2)+1;
   for(const [di,dj] of front){for(let k=1;k<=3;k++){const i=ci+di*(di?rx+k-1:0),j=cj+dj*(dj?rz+k-1:0);if(walkable(lot,i,j))return [i,j];}}
   return nearestWalkable(lot,ci,cj);
@@ -563,9 +667,13 @@ function humanParts(p){ // p: {h:14|10, pants, shirt, skin, hair, dress, long, a
   const legL=model(2,legH,2,g=>{g.box(0,0,0,2,legH,2,p.pants);g.box(0,0,0,2,1,2,PC.black);});
   const legR=model(2,legH,2,g=>{g.box(0,0,0,2,legH,2,p.pants);g.box(0,0,0,2,1,2,PC.black);});
   const body=model(6,torsoH+sk,4,g=>{ if(sk)g.box(0,0,1,6,sk,2,p.pants); g.box(1,sk,1,4,torsoH,2,p.dress?p.pants:p.shirt);
-    g.box(0,sk,1,1,torsoH-1,2,p.shirt);g.box(5,sk,1,1,torsoH-1,2,p.shirt);g.box(0,sk,1,1,1,2,p.skin);g.box(5,sk,1,1,1,2,p.skin); g.box(2,sk+torsoH-1,1,2,1,2,p.skin); });
+    if(!p.dress)g.box(1,sk,1,4,1,2,PC.woodD); // belt
+    if(p.dress&&p.apron)g.box(1,0,3,4,sk+torsoH-2,1,PC.cream); // apron front
+    g.box(0,sk,1,1,torsoH-1,2,p.shirt);g.box(5,sk,1,1,torsoH-1,2,p.shirt);g.box(0,sk,1,1,1,2,p.skin);g.box(5,sk,1,1,1,2,p.skin); g.box(2,sk+torsoH-1,1,2,1,2,p.skin);
+    g.box(1,sk+torsoH-1,1,1,1,2,p.dress?p.pants:PC.white);g.box(4,sk+torsoH-1,1,1,1,2,p.dress?p.pants:PC.white); // collar
+  });
   const HH=headH*2; // head at double resolution so a face can have two eyes, a nose and a mouth
-  const head=model(8,HH,8,g=>{ g.box(0,0,0,8,HH,8,p.skin); g.box(0,HH-2,0,8,2,8,p.hair); g.box(0,2,0,8,HH-2,2,p.hair); g.box(0,HH-3,0,8,1,1,p.hair); if(p.long){g.box(0,0,0,2,HH,4,p.hair);g.box(6,0,0,2,HH,4,p.hair);}
+  const head=model(8,HH,8,g=>{ g.box(0,0,0,8,HH,8,p.skin); g.box(0,HH-2,0,8,2,8,p.hair); g.box(0,2,0,8,HH-2,2,p.hair); g.box(0,HH-3,0,8,1,1,p.hair); if(p.long){g.box(0,0,0,2,HH,4,p.hair);g.box(6,0,0,2,HH,4,p.hair);} if(p.bun){g.box(2,HH-3,-0,4,3,1,p.hair);g.box(2,HH-4,0,4,4,1,p.hair);} if(!p.dress&&!p.long){g.box(0,HH-2,3,2,2,5,p.skin);g.box(0,HH-2,2,1,1,1,p.skin);}
     const ey=Math.floor(HH*0.58); g.set(2,ey,7,PC.black); g.set(5,ey,7,PC.black); g.set(2,ey+1,7,p.hair); g.set(5,ey+1,7,p.hair); g.box(3,ey-2,7,2,2,1,P('#c9987a')); g.box(2,Math.max(0,ey-4),7,4,1,1,P('#a8705c')); if(p.age>60){g.set(1,ey-1,7,P('#d8b39a'));g.set(6,ey-1,7,P('#d8b39a'));} });
   return {legL,legR,body,head,legH,torsoH,headH,sk};
 }
@@ -601,7 +709,7 @@ class Being{
   center(){return new THREE.Vector3(this.pos.x,this.pos.y+this.size[1]/2,this.pos.z);}
   room(){return roomAtWorld(this.lot,this.pos.x,this.pos.z);}
   goToCell(c){ if(!c)return; const now=clock.min; const [si,sj]=cellOf(this.lot,this.pos.x,this.pos.z); const s=walkable(this.lot,si,sj,true)?[si,sj]:nearestWalkable(this.lot,si,sj); if(!s)return;
-    if(s[0]===c[0]&&s[1]===c[1]){this.path=null;return;} const p=astar(this.lot,s,c); this.path=p; this.pathI=1; this.lastPathT=now; }
+    if(s[0]===c[0]&&s[1]===c[1]){this.path=null;this.noPath=false;return;} let p=astar(this.lot,s,c); if(!p){const alt=nearestWalkable(this.lot,c[0],c[1]);if(alt)p=astar(this.lot,s,alt);} this.path=p; this.noPath=!p; this.pathI=1; this.lastPathT=now; }
   goToProp(prop){this.goToCell(standSpot(this.lot,prop));this.facing=prop;}
   goOut(){ // walk to gate then off along the road
     const g=this.lot.K.gate; const c=cellOf(this.lot,g.pos.x+g.size[0]/2,g.pos.z-0.6); this.goToCell(nearestWalkable(this.lot,c[0],c[1])); this.exiting=true; }
@@ -621,9 +729,9 @@ class Being{
 function makePerson(lot,o){
   const r=mulberry(strToSeed(o.name)^lot.seed);
   const PK=a=>a[Math.floor(r()*a.length)];
-  const skin=P(PK(['#e7c2a2','#d9ab86','#c9956c','#8d5b3c'])),hair=P(PK(o.age>60?['#c9c3b7','#9a948a','#d8d3c9']:['#3b2a1c','#6b4a2a','#a8763e','#1e1a17','#b8a06a']));
-  const shirt=P(PK(o.dress?['#7a8fb5','#b56b6b','#8aa478','#c9a45a','#6d6f9a']:['#dfe6ec','#b9c7d8','#c9b78a','#8d9cb0','#9a8f7a'])),pants=P(PK(o.dress?['#7a8fb5','#b56b6b','#8aa478','#c9a45a']:['#3b3f4a','#5a4a3a','#4b4f57','#6a5a44']));
-  const parts=humanParts({h:o.child?10:14,pants,shirt,skin,hair,dress:o.dress,long:o.dress&&r()<0.7,age:o.age});
+  const skin=P(PK(['#e7c2a2','#d9ab86','#c9956c','#8d5b3c']),'skin'),hair=P(PK(o.age>60?['#c9c3b7','#9a948a','#d8d3c9']:['#3b2a1c','#6b4a2a','#a8763e','#1e1a17','#b8a06a']),'hair');
+  const shirt=P(PK(o.dress?['#7a8fb5','#b56b6b','#8aa478','#c9a45a','#6d6f9a']:['#dfe6ec','#b9c7d8','#c9b78a','#8d9cb0','#9a8f7a']),o.dress?'floral':'knit'),pants=P(PK(o.dress?['#7a8fb5','#b56b6b','#8aa478','#c9a45a']:['#3b3f4a','#5a4a3a','#4b4f57','#6a5a44']),'fabric');
+  const parts=humanParts({h:o.child?10:14,pants,shirt,skin,hair,dress:o.dress,long:o.dress&&r()<0.7,age:o.age,bun:o.dress&&o.age>55,apron:o.dress&&o.age>40&&!o.child});
   const b=new Being(lot,Object.assign({parts},o)); b.child=!!o.child;
   b.open=o.open||PK(['chill','nudge','beckon']); return b;
 }
@@ -651,7 +759,7 @@ function expand(s,ctx){return s.replace(/#(\w+)#/g,(m,k)=>{const v=ctx[k]??GRAM[
 
 // ═══════════════════════════ STORIES (hinge templates) ═══════════════════════════
 const MONTHS=['May','June','September','October'];
-function firstNames(r,sex,old){const PK=a=>a[Math.floor(r()*a.length)];return sex==='f'?PK(old?['Ruth','Edna','Mabel','Lois','Irene','Dorothy']:['Margaret','June','Carol','Nancy','Joan','Alice']):PK(old?['Harold','Walter','Earl','Clarence','Roy']:['Frank','Walter','Donald','Gene','Ray']);}
+function firstNames(r,sex,old){const PK=a=>a[Math.floor(r()*a.length)];const N=era.names;return PK(sex==='f'?(old?N.f:N.fy):(old?N.m:N.my));}
 function lastName(r){return ['Pettibone','Kowalski','Larsen','Hoxie','Vandermeer','Cutler','Bagley','Novak'][Math.floor(r()*8)];}
 
 function storyLetter(lot,K,r){
@@ -672,7 +780,7 @@ function storyLetter(lot,K,r){
       phone:{kind:'voice',text:`${mom}, on the phone: she hasn't opened it. She doesn't know what she'd say.`},
       letter:{kind:'object',text:`${sis} will be on the 5:40 Tuesday and will wait until six. She won't write again.`},
       echo:{kind:'echo',text:`The day the letter came, ${mom} nearly tore it open. Then put it away.`}},
-    wake:['A hall. A mirror you are not in.','Somebody has been standing in this spot a long time.'],
+    wakeRoom:'hall',wake:['A hall. A mirror you are not in.','Somebody has been standing in this spot a long time.'],
     hinge:{day:2,t:hm('17:40')},state:{read:false},
   };
   const M=makePerson(lot,{name:mom,age:58,role:'widow',dress:true,traits:{sensitivity:.7,skepticism:.3,fear:.35}});
@@ -690,6 +798,7 @@ function storyLetter(lot,K,r){
   W.routine=[{t:'06:30',do:'wake',at:'bedB'},{t:'06:50',do:'sit',at:K.chair2,say:['Morning, Ma.','Paper says cooler.','You going to eat that?']},{t:'07:30',do:'out',dir:1},{t:'17:10',do:'back'},{t:'17:20',do:'sit',at:K.chair2},{t:'18:40',do:'sit',at:K.chair2},{t:'19:20',do:'sit',at:K.sofa,say:['Turn it up, Ma.','Tigers lost.']},{t:'21:30',do:'sleep',at:K.bedB}];
   C.routine=[{t:'06:00',do:'wander',at:'kitchen'},{t:'09:00',do:'wander',at:'living'},{t:'14:00',do:'wander',at:'bedA'},{t:'18:00',do:'wander',at:'kitchen'},{t:'22:00',do:'wander',at:'living'}];
   S.echoes={living:{actors:[{b:M,at:K.picture},{b:W,at:K.sofa}],lines:[{who:son,text:'Who\'s it from?'},{who:mom,text:'Nobody.'},{who:null,text:'She works a thumb under the flap. Stops.'},{who:mom,text:'It can keep.'}],clue:'echo'}};
+  S.props={letter};
   S.onHook=(who,name)=>{if(name==='phone'&&nearGhost(who))addClue('phone'); if(name==='drawer'&&nearGhost(who,6))addClue('drawer');};
   S.onExamine=(who,prop)=>{
     if(prop===K.hallTable||prop===letter){ if(prop===K.hallTable&&letter.hidden){letter.show(true);letter.setPos(K.hallTable.pos.clone().add(new THREE.Vector3(0.1,K.hallTable.size[1],0.05)));}
@@ -721,7 +830,7 @@ function storyGate(lot,K,r){
       dogwait:{kind:'routine',text:`${dog} waits at the gate every evening around 5:30, looking at the road.`},
       phone:{kind:'voice',text:`${dad}, on the phone: he'll get to the gate Saturday. "She's nine. They bounce."`},
       echo:{kind:'echo',text:`Last week ${dog} got onto the road. ${kid} ran after. ${dad} shouted.`}},
-    wake:['A yard. A gate that swings.','Something small and fast lives here.'],hinge:{day:2,t:hm('17:40')},start:'15:10',state:{fixed:false,closed:false,near:0},petName:dog};
+    wakeRoom:'yard',wake:['A yard. A gate that swings.','Something small and fast lives here.'],hinge:{day:2,t:hm('17:40')},start:'15:10',state:{fixed:false,closed:false,near:0},petName:dog};
   const D=makePerson(lot,{name:dad,age:41,role:'widower, drives for the county',traits:{sensitivity:.35,skepticism:.75,fear:.2}});
   const J=makePerson(lot,{name:kid,age:9,role:'his daughter',child:true,dress:true,traits:{sensitivity:.9,skepticism:.1,fear:.5}});
   const B=makePet(lot,{name:dog,kind:'dog',color:'#b98d5a'});
@@ -732,7 +841,7 @@ function storyGate(lot,K,r){
   B.routine=[{t:'06:00',do:'wander',at:'kitchen'},{t:'07:40',do:'stand',at:K.gate},{t:'09:00',do:'wander',at:'yard'},{t:'15:30',do:'wander',at:'yard'},{t:'17:25',do:'stand',at:K.gate,hook:'dogwait'},{t:'18:00',do:'wander',at:'kitchen'},{t:'20:30',do:'wander',at:'living'}];
   S.echoes={yard:{actors:[{b:D,at:K.bench},{b:J,at:toy},{b:B,at:K.gate}],lines:[{who:null,text:'A truck, downshifting on Hill Street.'},{who:dad,text:dog.toUpperCase()+'—'},{who:kid,text:'Biscuit no no no—'},{who:null,text:'Brakes. A horn held down. Then nothing bad, this time.'},{who:dad,text:'I said STAY IN THE YARD.'}],clue:'echo'}};
   const setGate=(open)=>{S.state.closed=!open;K.gate.state.open=open;K.gate.mesh.rotation.y=open?-Math.PI/2:0;K.gate.mesh.position.copy(K.gate.pos);if(open)K.gate.mesh.position.z+=K.gate.size[0];};
-  S.setGate=setGate; setGate(true);
+  S.props={bag,ham,toy}; S.setGate=setGate; setGate(true);
   S.onHook=(who,name)=>{ if(name==='phone'&&nearGhost(who))addClue('phone'); if(name==='dogwait'&&nearGhost(who,10))addClue('dogwait'); if(name==='open'&&!S.state.fixed)setGate(true);
     if(name==='evening'&&clock.day===1){setTimeout(()=>{B.exitDir=1;B.goOut();J.say(dog+'! '+dog+' come BACK!','force');setTimeout(()=>{D.say(dog.toUpperCase()+'!','force');},2500);setTimeout(()=>{B.away=false;B.mesh.visible=true;B.exiting=false;B.place(cellCenter(lot,...cellOf(lot,K.gate.pos.x+0.5,K.gate.pos.z-1)));B.goToCell(roomSpot(lot,'yard',rng));J.say('He came back. He always comes back.','force');},9000);},6000);} };
   S.onExamine=(who,prop)=>{ if(who!==D)return; if(prop===K.gate||prop===bag){ if(!S.state.fixed){D.say('Well, hell. Alright.','force');S.state.fixed=true;setGate(false);setTimeout(()=>{D.say('There. Latched.','force');addClue('latch');},4000);} } };
@@ -756,7 +865,7 @@ function storyBottle(lot,K,r){
       twice:{kind:'routine',text:`${dad} takes a pill at seven. At half past he takes another. He doesn't remember the first.`},
       phone:{kind:'voice',text:`${dau}, on the phone: he seems tired lately. She doesn't want to treat him like a child.`},
       echo:{kind:'echo',text:`${dad}, alone with the bottle: "Did I?"`}},
-    wake:['A bathroom, small. A mirror front cabinet.','Somebody counts things here and loses count.'],hinge:{day:2,t:hm('07:31')},start:'18:10',state:{managed:false,pillsToday:0,paused:false},petName:cat};
+    wakeRoom:'bath',wake:['A bathroom, small. A mirror front cabinet.','Somebody counts things here and loses count.'],hinge:{day:2,t:hm('07:31')},start:'18:10',state:{managed:false,pillsToday:0,paused:false},petName:cat};
   const H=makePerson(lot,{name:dad,age:74,role:'retired, from the railroad',traits:{sensitivity:.6,skepticism:.4,fear:.3}});
   const M=makePerson(lot,{name:dau,age:46,role:'his daughter, works at the school office',dress:true,traits:{sensitivity:.5,skepticism:.55,fear:.3}});
   const C=makePet(lot,{name:cat,kind:'cat',color:'#c98a3a'});
@@ -771,7 +880,7 @@ function storyBottle(lot,K,r){
   S.onHook=(who,name)=>{ if(name==='phone'&&nearGhost(who))addClue('phone'); if(name==='pill'){S.state.pillsToday=1;} if(name==='pill2'){ if(S.state.managed){who.say('One. She set it out. One.','force');return;} if((who.busy&&who.busy.type==='pause')||(S.state.paused&&clock.day===2)){return;} S.state.pillsToday=2; if(clock.day===1&&nearGhost(who,7))addClue('twice'); } };
   S.onExamine=(who,prop)=>{ if(who===M&&prop===bottle&&!S.state.managed){S.state.managed=true;M.say('Dad. How many of these have you— Dad.','force');setTimeout(()=>H.say('One. I take one.','force'),2500);setTimeout(()=>M.say('I\'m setting them out from now on. One. On the saucer.','force'),5000);addClue('bottle');
       M.routine.push({t:'06:45',day:2,do:'stand',at:bottle,say:['One. There.']});} };
-  S.bottle=bottle;
+  S.bottle=bottle; S.props={bottle};
   S.onChill=(who)=>{ if(who===H&&clock.day===2&&clock.min>=hm('07:20')&&clock.min<hm('07:31')){who.busy={type:'pause',until:clock.min+12};who.say('Cold. Now what did I come in here for.','force');S.state.paused=true;} };
   S.onNudge=()=>false;
   S.resolve=()=>{ if(anyFled())return {result:'fled',title:'Carol\'s',lines:[`${dau} took ${dad} to her sister's after the noises. Nobody set out his pills there either.`]};
@@ -780,13 +889,96 @@ function storyBottle(lot,K,r){
     return {result:'fail',title:'Two',lines:[`${dad} took the second pill at 7:31 and sat down on the porch.`,`${dau} found him at five. The doctor said his heart. The bottle was nearly empty.`]}; };
   return S;
 }
-const STORIES=[storyLetter,storyGate,storyBottle];
+
+function storySuitcase(lot,K,r){
+  const mom=firstNames(r,'f',false), son=firstNames(r,'m',false), city=['Detroit','Chicago','Grand Rapids'][Math.floor(r()*3)], cat=['Smokey','Tigger','Muffin'][Math.floor(r()*3)], friend=['Dee','Barb','Sandy'][Math.floor(r()*3)];
+  const suitcase=new Prop(lot,'suitcase',{pos:K.bedB.pos.clone().add(new THREE.Vector3(K.bedB.size[0]+0.05,0,0.6)),room:'bedB',name:'a suitcase',desc:'Packed. Under the edge of the bed, where a suitcase is not kept.',clue:'suitcase',tags:{sentimental:true}});
+  const note=onTop(lot,'note',K.dresserB,0.7,0.5,{name:'a note',desc:'Half a page. Started three times.',read:`Mom — I'm not running away, I'm going TO something. I got a job lined up in ${city} through Ray's cousin. I'll call when I`,clue:'note',tags:{sentimental:true}});
+  const jacket=addProp(lot,'jacket','hall','E',0.2,{y:5,dx:0.12,name:'his jacket',desc:'Denim. Something in the inside pocket.',read:`Greyhound. Friday, 11:20 PM. One way, through to ${city}.`,clue:'ticket'});
+  K.calendar.desc=`"${mom.slice(0,1)}. late shift" on Friday. Nothing after Friday.`;K.calendar.clue='calendar';
+  K.news.clue='bus';
+  const S={title:'The Suitcase',cast:[],wakeRoom:'bedB',start:'06:20',wake:['A bedroom with a poster half peeled off the wall.','Somebody is leaving and hasn\'t said so.'],clues:{
+      suitcase:{kind:'object',text:`A packed suitcase under ${son}'s bed.`},note:{kind:'object',text:`A note to his mother, started three times, never finished. A job in ${city}.`},
+      ticket:{kind:'object',text:`A one-way bus ticket in his jacket. Friday, 11:20 PM.`},calendar:{kind:'object',text:`${mom} works the late shift Friday. She'd never know until morning.`},bus:{kind:'object',text:`The 11:20 goes through to ${city}.`},
+      phone:{kind:'voice',text:`${mom}, on the phone: she knows something's off with him. She doesn't want to push.`},
+      pack:{kind:'routine',text:`Every afternoon ${son} packs and unpacks the same shirts.`},
+      echo:{kind:'echo',text:`${son} practicing what he'd say to her. He never gets past "Mom."`}},
+    hinge:{day:2,t:hm('23:15')},state:{found:false,wrote:false,talked:false},petName:cat};
+  const M=makePerson(lot,{name:mom,age:44,role:'his mother, nights at the hospital',dress:true,traits:{sensitivity:.6,skepticism:.5,fear:.35}});
+  const B=makePerson(lot,{name:son,age:17,role:'seventeen, out of school in June',traits:{sensitivity:.5,skepticism:.6,fear:.2}});
+  const C=makePet(lot,{name:cat,kind:'cat',color:'#6a6a6e'});
+  S.cast=[{b:M,intro:'A woman in her forties, hospital shoes.'},{b:B,intro:'A boy nearly a man, hands in pockets.'},{b:C,intro:'A grey cat that sleeps on the suitcase.'}];
+  M.routine=[{t:'06:30',do:'wake',at:'bedA'},{t:'06:50',do:'stand',at:K.stove,say:['#hum#']},{t:'07:10',do:'sit',at:K.chair1,say:['You want eggs?','You\'re quiet.','Are you going to see Ray tonight?']},{t:'08:00',do:'sit',at:K.armchair},
+    {t:'10:00',do:'stand',at:K.dresserB,say:['Honestly, this room.','Where do the socks go, I wonder.'],hook:'tidy'},{t:'10:20',do:'wander',at:'living'},{t:'12:00',do:'sit',at:K.chair1},{t:'13:30',day:1,do:'stand',at:K.phone,say:[`I don't know, ${friend}. He's somewhere else lately.`,'No, I haven\'t asked. If I push he goes further in.','He\'s seventeen. Seventeen is a country.','I\'m on at three. I know.'],hook:'phone'},
+    {t:'14:00',do:'sit',at:K.armchair},{t:'14:40',do:'out',dir:-1},{t:'23:40',do:'back'},{t:'23:50',do:'sleep',at:K.bedA}];
+  B.routine=[{t:'06:45',do:'wake',at:'bedB'},{t:'07:15',do:'sit',at:K.chair2,say:['Not hungry.','Yeah.','Maybe.']},{t:'07:40',do:'out',dir:1},{t:'15:20',do:'back'},{t:'15:30',do:'stand',at:suitcase,say:['Two shirts.','Socks. Socks.','…'],hook:'pack'},{t:'16:10',do:'stand',at:K.dresserB,say:['Mom—','Dear Mom,','No.']},
+    {t:'17:00',do:'sit',at:K.chair2},{t:'19:00',do:'sit',at:K.sofa,say:['…']},{t:'21:30',do:'sleep',at:K.bedB},{t:'22:50',day:2,do:'stand',at:K.hooks,say:['Okay.','Okay.'],hook:'leave1'},{t:'23:05',day:2,do:'out',dir:1,hook:'leave'}];
+  C.routine=[{t:'06:00',do:'wander',at:'kitchen'},{t:'09:00',do:'wander',at:'bedB'},{t:'16:00',do:'wander',at:'living'},{t:'21:00',do:'wander',at:'bedB'}];
+  S.echoes={bedB:{actors:[{b:B,at:K.dresserB}],lines:[{who:null,text:'Afternoon. The suitcase open on the bed.'},{who:son,text:'Mom. I—'},{who:son,text:'Mom, don\'t be mad, I—'},{who:null,text:'He closes the suitcase. Opens it. Closes it.'},{who:son,text:'She\'d just cry.'}],clue:'echo'}};
+  S.props={note,suitcase,jacket};
+  S.onHook=(who,name)=>{ if(name==='phone'&&nearGhost(who))addClue('phone'); if(name==='pack'&&nearGhost(who,7))addClue('pack');
+    if(name==='leave1'&&S.state.found){ setTimeout(()=>{M.say('Sit down a minute.','force');},1500);setTimeout(()=>{B.say('…How long have you known.','force');},4500);setTimeout(()=>{M.say(`Since Tuesday. Eat something before the bus.`,'force');S.state.talked=true;},7500);}
+    if(name==='leave'&&S.state.wrote&&!S.state.found){ note.setPos(K.table.pos.clone().add(new THREE.Vector3(0.3,K.table.size[1],0.3))); } };
+  S.onExamine=(who,prop)=>{
+    if(who===M&&(prop===note||prop===suitcase||prop===jacket)&&!S.state.found){ S.state.found=true; M.say(prop===note?'…Oh, honey.':'What is this. What is— oh.','force'); addClue(prop===note?'note':prop===jacket?'ticket':'suitcase');
+      M.routine=M.routine.filter(e=>!(e.day===undefined&&(e.t==='14:40'||e.t==='23:40'||e.t==='23:50'))); M.routine.push({t:'14:40',day:2,do:'stand',at:K.phone,say:[`${friend}, I'm not coming in tonight.`,'No. Something at home.','I know. Put me down for Sunday.']},{t:'15:00',day:2,do:'sit',at:K.armchair},{t:'22:30',day:2,do:'sit',at:K.chair1,say:['…','He\'ll come through here.']},{t:'23:10',day:2,do:'stand',at:K.hooks,say:['Call when you get there. Reverse the charges.']},{t:'23:20',day:2,do:'sit',at:K.chair1}); }
+    if(who===B&&(prop===K.wallPhotoA||prop===K.photoA)&&!S.state.wrote){ S.state.wrote=true; B.say('…Okay. Okay, I\'ll finish it.','force'); note.read=`Mom — I'm not running away, I'm going TO something. Job in ${city} through Ray's cousin. I'll call Sunday. I'm sorry I couldn't say it. I love you. — ${son}`; note.desc='Finished, finally. Signed.'; addClue('note'); }
+  };
+  S.onNudge=()=>false;
+  S.resolve=()=>{ if(anyFled())return {result:'fled',title:'Somewhere else',lines:[`${mom} slept at ${friend}'s after the second night of noises. ${son} left from an empty house.`]};
+    if(S.state.talked)return {result:'success',title:'The 11:20',lines:[`${mom} was at the kitchen table when he came through with the suitcase. She'd been there since ten.`,`He made the bus. She drove him. They sat in the lot until the driver honked.`,`He called Sunday, collect.`]};
+    if(S.state.found)return {result:'success',title:'Since Tuesday',lines:[`She knew, and he didn't know she knew, and she let him go anyway.`,`There was a sandwich in the jacket pocket when he opened it on the bus.`]};
+    if(S.state.wrote)return {result:'partial',title:'The note',lines:[`He finished the note and left it on the table under the salt.`,`She read it at 11:50 with her coat still on. It was enough. It was almost enough.`]};
+    return {result:'fail',title:'Empty',lines:[`${son} was on the 11:20. The note said "Mom —" and nothing else.`,`${mom} found the drawer empty at ten to midnight and sat on his bed until it was light.`]}; };
+  return S;
+}
+
+function storyBurner(lot,K,r){
+  const gran=firstNames(r,'f',true), kid=firstNames(r,'f',false), cat=['Tom','Smoke','Patches'][Math.floor(r()*3)];
+  K.stove.desc='Kerosene. The left front burner lights on the second try, and the knob says off a quarter turn before it is.';K.stove.clue='stove';K.stove.tags.move=false;
+  K.towel.desc='Scorched at one corner. Twice.';K.towel.clue='towel';K.towel.tags.sentimental=true;
+  K.news.clue='paper';K.news.read=era.paper;
+  K.calendar.desc='In a careful hand: "Dr. B. says warm milk for the sleeplessness."';K.calendar.clue='calendar';
+  K.kettle.tags.sentimental=true;
+  const S={title:'The Burner',cast:[],wakeRoom:'kitchen',start:'18:30',wake:['A kitchen. A kettle ticking as it cools.','Something here is turned to off and isn\'t.'],clues:{
+      stove:{kind:'object',text:'The left front burner\'s knob lies. Off is a quarter turn past where it says off.'},towel:{kind:'object',text:'A dish towel scorched at one corner. More than once.'},
+      paper:{kind:'object',text:'A stove fire on Elm Street last week. Family safe.'},calendar:{kind:'object',text:`${gran} can't sleep. The doctor says warm milk.`},
+      night:{kind:'routine',text:`${gran} gets up in the small hours and lights the stove for tea.`},
+      table:{kind:'voice',text:`${kid}, at breakfast: "Gran, you were up again."`},
+      echo:{kind:'echo',text:`${gran} at one in the morning, turning the knob to where it says off. It isn't.`}},
+    hinge:{day:2,t:hm('01:42')},state:{burnerOn:false,off:false},petName:cat};
+  const G=makePerson(lot,{name:gran,age:71,role:'widow, raising her granddaughter',dress:true,traits:{sensitivity:.65,skepticism:.35,fear:.4}});
+  const R=makePerson(lot,{name:kid,age:12,role:'her granddaughter',child:true,dress:true,traits:{sensitivity:.85,skepticism:.2,fear:.45}});
+  const C=makePet(lot,{name:cat,kind:'cat',color:'#8a8a86'});
+  S.cast=[{b:G,intro:'An old woman, straight-backed, bun pinned tight.'},{b:R,intro:'A girl of twelve with ink on her fingers.'},{b:C,intro:'A grey cat that will not go in the kitchen at night.'}];
+  G.routine=[{t:'05:30',do:'wake',at:'bedA'},{t:'05:45',do:'stand',at:K.stove,say:['#hum#']},{t:'06:30',do:'sit',at:K.chair1,say:['Eat your oats.','Mind the time.']},{t:'08:00',do:'stand',at:K.counter,say:['#hum#']},{t:'10:00',do:'sit',at:K.armchair},{t:'12:00',do:'sit',at:K.chair1},{t:'13:30',do:'sleep',at:K.bedA},{t:'15:00',do:'sit',at:K.bench,say:['#hum#']},
+    {t:'18:00',do:'stand',at:K.stove},{t:'19:00',do:'sit',at:K.chair1,say:['Homework, then bed.']},{t:'20:30',do:'sleep',at:K.bedA},
+    {t:'01:12',day:2,do:'stand',at:K.stove,say:['Tea.','Where\'s the— there.','Warm milk, he says. Tea.'],hook:'burner'},{t:'01:30',day:2,do:'sit',at:K.chair1,say:['…']},{t:'01:36',day:2,do:'sleep',at:K.bedA,hook:'left'}];
+  R.routine=[{t:'06:20',do:'wake',at:'bedB'},{t:'06:35',do:'sit',at:K.chair2,say:['Gran, you were up again.','I heard the kettle.','Yes, Gran.'],hook:'table'},{t:'07:30',do:'out',dir:1},{t:'15:10',do:'back'},{t:'15:20',do:'wander',at:'yard'},{t:'17:30',do:'sit',at:K.chair2,say:['Seven eights is fifty-six.']},{t:'19:00',do:'sit',at:K.sofa},{t:'20:00',do:'sleep',at:K.bedB}];
+  C.routine=[{t:'06:00',do:'wander',at:'kitchen'},{t:'09:00',do:'wander',at:'living'},{t:'17:00',do:'wander',at:'bedB'},{t:'20:00',do:'wander',at:'living'}];
+  S.echoes={kitchen:{actors:[{b:G,at:K.stove}],lines:[{who:null,text:'One in the morning. The kettle ticking as it cools.'},{who:gran,text:'There. Off.'},{who:null,text:'The knob says off. A blue tongue of flame says otherwise.'},{who:gran,text:'…Did I? I did.'}],clue:'echo'}};
+  S.props={};
+  const turnOff=(who)=>{ if(!S.state.burnerOn||S.state.off)return; S.state.off=true;S.state.burnerOn=false; who.say(who===G?'…That\'s not off. That is not off.':'Gran! Gran, the stove!','force'); if(who===R)setTimeout(()=>G.say('Oh, child. Oh, I thought—','force'),3000); addClue('stove'); };
+  S.onHook=(who,name)=>{ if(name==='table'&&nearGhost(who))addClue('table'); if(name==='burner'){S.state.burnerOn=true;S.state.off=false;if(nearGhost(who,8))addClue('night');} if(name==='left'&&nearGhost(who,9)&&S.state.burnerOn)sys('She has gone to bed. The burner has not.'); };
+  S.onExamine=(who,prop)=>{ if(S.state.burnerOn&&roomAtWorld(lot,prop.pos.x,prop.pos.z)==='kitchen')turnOff(who); };
+  S.onChill=(who)=>{ if(who===R&&S.state.burnerOn&&clock.day===2){ who.pose='stand';who.sync();who.busy={type:'investigate',prop:K.stove,arrived:false};who.goToProp(K.stove);who.say('…cold. Gran?','force'); } };
+  S.onNudge=()=>false;
+  S.resolve=()=>{ if(anyFled())return {result:'fled',title:'Elm Street, again',lines:[`${gran} took ${kid} to her sister's after the noises. The stove she left behind was fine. The one at her sister's was not.`]};
+    if(S.state.off)return {result:'success',title:'A quarter turn',lines:[`The burner was off at 1:42. Somebody had turned the knob the rest of the way.`,`${gran} had a man out the next week to look at it. He said it was a wonder.`,`${kid} kept the scorched towel. She has it still.`]};
+    if(!S.state.burnerOn)return {result:'partial',title:'No tea',lines:[`${gran} didn't get up that night. She doesn't know why.`,`The burner is still wrong. Another night, then.`]};
+    return {result:'fail',title:'1:42',lines:[`The towel caught at 1:42. ${kid} smelled it first.`,`They got out — ${kid} pulling her grandmother by the wrist, the cat already on the porch.`,`The kitchen burned to the studs. They lived with the sister after that.`]}; };
+  return S;
+}
+
+const STORIES=[{fn:storyLetter,eras:[1954]},{fn:storyGate,eras:[1954,1981]},{fn:storyBottle,eras:[1928,1954,1981]},{fn:storySuitcase,eras:[1981]},{fn:storyBurner,eras:[1928]}];
 
 // ═══════════════════════════ SIM: routines, anomalies, reactions ═══════════════════════════
 let lot=null, story=null, K=null;
 function currentEntry(b){ let best=null; for(const e of b.routine){ if(e.day&&e.day!==clock.day)continue; const t=hm(e.t); if(t<=clock.min&&(!best||t>=hm(best.t)||(best.day===undefined&&e.day)))best=e; } return best; }
 function startEntry(b,e){
-  b.cur=e; b.pose='stand'; b.sync(); b.facing=null; b.lookAt=null;
+  b.cur=e; b.pose='stand'; b.sync(); b.facing=null; b.lookAt=null; if(e.do!=='out'){b.exiting=false;}
+  if(b.away&&e.do!=='out'&&e.do!=='back'){ // a skipped 'back' entry: reappear at the gate first
+    b.away=false;b.mesh.visible=true;const c=cellOf(lot,K.gate.pos.x+0.5,K.gate.pos.z-0.8);const w=nearestWalkable(lot,c[0],c[1]);if(w)b.place(cellCenter(lot,...w)); }
   if(e.do==='out'){b.exitDir=e.dir||1;b.goOut();}
   else if(e.do==='back'){b.away=false;b.mesh.visible=true;b.exiting=false;const c=cellOf(lot,K.gate.pos.x+0.5,K.gate.pos.z-0.8);b.place(cellCenter(lot,...nearestWalkable(lot,c[0],c[1])));b.goToCell(roomSpot(lot,'kitchen',rng));}
   else if(e.do==='wander'){b.goToCell(roomSpot(lot,e.at,rng));b.wanderNext=clock.min+3+rng()*4;}
@@ -796,9 +988,9 @@ function startEntry(b,e){
   b.sayNext=clock.min+1+rng()*3; if(e.hook&&story.onHook)story.onHook(b,e.hook);
 }
 function tickBeing(b,dtMin){
-  if(b.away&&!b.exiting)return;
+  if(b.away&&!b.exiting){ const e0=currentEntry(b); if(e0&&e0!==b.cur&&e0.do!=='out'){startEntry(b,e0);} else return; }
   if(b.busy){ const bz=b.busy;
-    if(bz.type==='investigate'){ if(!b.path){ if(!bz.arrived){bz.arrived=true;bz.until=clock.min+1.2;const c=bz.prop.center();b.lookAt=c;b.yaw=Math.atan2(c.x-b.pos.x,c.z-b.pos.z);b.sync();examine(b,bz.prop);} else if(clock.min>=bz.until){b.busy=null;b.cur=null;b.lookAt=null;} } }
+    if(bz.type==='investigate'){ if(b.noPath){b.busy=null;b.noPath=false;} else if(!b.path){ if(!bz.arrived){bz.arrived=true;bz.until=clock.min+1.2;const c=bz.prop.center();b.lookAt=c;b.yaw=Math.atan2(c.x-b.pos.x,c.z-b.pos.z);b.sync();examine(b,bz.prop);} else if(clock.min>=bz.until){b.busy=null;b.cur=null;b.lookAt=null;} } }
     else if(bz.type==='flee'){ if(clock.min>=bz.until){b.busy=null;b.fear=0.3;b.cur=null;b.away=false;b.mesh.visible=true;b.exiting=false;const c=cellOf(lot,K.gate.pos.x+0.5,K.gate.pos.z-0.8);b.place(cellCenter(lot,...nearestWalkable(lot,c[0],c[1])));} }
     else if(bz.type==='pause'){ if(clock.min>=bz.until){b.busy=null;b.cur=null;} }
     else if(bz.type==='look'){ if(clock.min>=bz.until){b.busy=null;} }
@@ -901,7 +1093,7 @@ function playEcho(e){
 
 // ═══════════════════════════ JOURNAL / HUD ═══════════════════════════
 const clues=[];
-function addClue(id){ if(!story.clues[id]||clues.includes(id))return; clues.push(id); renderClues(); const c=story.clues[id]; sys('Noticed: '+c.text); }
+function addClue(id){ if(!story.clues[id]||clues.includes(id))return; clues.push(id); renderClues(); const c=story.clues[id]; sys('Noticed: '+c.text+(clues.length===1?(isTouch?'  — kept in your Journal, top right.':'  — kept in your Journal (J).'):'')); $('jbtn').classList.add('pulse'); setTimeout(()=>$('jbtn').classList.remove('pulse'),4000); }
 function renderClues(){ const el=$('clues'); el.innerHTML=''; if(!clues.length){el.innerHTML='<div class="clue empty">Nothing yet. Look closely at things. Watch what repeats.</div>';} for(const id of clues){const c=story.clues[id];const d=document.createElement('div');d.className='clue';d.innerHTML=`<small>${c.kind}</small>${c.text}`;el.appendChild(d);} $('jcount').textContent=clues.length?clues.length:''; }
 function renderCast(){ $('cast').innerHTML=story.cast.map(c=>c.known?`<div><b>${c.b.name}</b> — ${c.b.role||c.b.kind}${c.b.open?`<br><span style="color:var(--spectral)">${OPEN_DESC[c.b.open]}</span>`:''}</div>`:`<div>${c.intro}</div>`).join(''); }
 function renderAbil(){
@@ -918,7 +1110,7 @@ function renderFocus(){ const el=$('focus'); if(!focus){el.innerHTML='';return;}
 const SKYK=[[0,'#0d1018',.45],[5,'#1c2236',.5],[6.5,'#e2a06f',.8],[8,'#a6cbe8',1],[13,'#9cc6ea',1],[17,'#b7cfe0',.95],[18.6,'#e39a5e',.8],[20,'#3a4463',.6],[21.5,'#141a26',.5],[24,'#0d1018',.45]];
 const _c1=new THREE.Color(),_c2=new THREE.Color();
 function lampsOn(){ if(!story)return 0; const h=(clock.min/60)%24; const dark=h>=18.3||h<6.6; if(!dark)return 0; const awake=people.some(b=>!b.away&&b.pose!=='sleep'&&b.room()!=='outside'&&b.room()!=='yard'); return awake?1:0.15; }
-function applySky(){ const h=(clock.min/60)%24; let i=0; while(i<SKYK.length-2&&SKYK[i+1][0]<=h)i++; const a=SKYK[i],b=SKYK[i+1]; const t=smooth((h-a[0])/(b[0]-a[0])); _c1.set(a[1]);_c2.set(b[1]); skyCol.copy(_c1).lerp(_c2,t); scene.fog.color.copy(skyCol); const br=lerp(a[2],b[2],t); MAT.color.setScalar(br); MAT_ECHO.color.setScalar(br*1.4); const lamps=lampsOn(); MAT_IN.color.setRGB(lerp(br,1.0,lamps*0.9),lerp(br,0.92,lamps*0.9),lerp(br,0.72,lamps*0.9)); MAT_GLASS.color.setRGB(lerp(0.74,1.0,lamps),lerp(0.84,0.82,lamps),lerp(0.9,0.5,lamps)); MAT_GLASS.opacity=lerp(0.28,0.75,lamps); scene.fog.near=lerp(25,60,br);scene.fog.far=lerp(90,200,br); }
+function applySky(){ const h=(clock.min/60)%24; let i=0; while(i<SKYK.length-2&&SKYK[i+1][0]<=h)i++; const a=SKYK[i],b=SKYK[i+1]; const t=smooth((h-a[0])/(b[0]-a[0])); _c1.set(a[1]);_c2.set(b[1]); skyCol.copy(_c1).lerp(_c2,t); scene.fog.color.copy(skyCol); const br=lerp(a[2],b[2],t); MAT.color.setScalar(br); MAT_ECHO.color.setScalar(br*1.4); const lamps=lampsOn(); MAT_IN.color.setRGB(lerp(br,1.0,lamps*0.9),lerp(br,0.92,lamps*0.9),lerp(br,0.72,lamps*0.9)); MAT_GLASS.color.setRGB(lerp(0.74,1.0,lamps),lerp(0.84,0.82,lamps),lerp(0.9,0.5,lamps)); MAT_GLASS.opacity=lerp(0.28,0.75,lamps); scene.fog.near=lerp(25,60,br);scene.fog.far=lerp(90,200,br); for(const m of VOXMATS){m.uniforms.fogColor.value.copy(skyCol);m.uniforms.fogNear.value=scene.fog.near;m.uniforms.fogFar.value=scene.fog.far;} }
 
 // ═══════════════════════════ INPUT ═══════════════════════════
 const keys={}; let paused=true, isTouch=matchMedia('(pointer:coarse)').matches; let attending=false;
@@ -964,25 +1156,27 @@ const lots=[];
 function clearWorld(){ for(const o of scene.children.slice())scene.remove(o); people.length=0;pets.length=0;lots.length=0;lotRects.length=0;hCache.clear();clues.length=0;echoMeshes.length=0;propId=0;for(const k in ghost.n)ghost.n[k]=0;ghost.known.clear();ghost.sel=0;ghost.legs=0;ghost.presence=1;unlockedSeen.clear();unlockedSeen.add('attend'); }
 function startLeap(seed){
   seedText=seed; SEED=strToSeed(seed); rng=mulberry(SEED); initNoise(SEED); clearWorld(); try{localStorage.setItem('jq:last',seed);}catch(e){}
+  const sr=mulberry(SEED^0xabc); const SD=STORIES[Math.floor(sr()*STORIES.length)]; era=ERA=ERAS[SD.eras[Math.floor(sr()*SD.eras.length)]];
   if(PAL.length===1)initTerrainPal();
   // lots: main at x=-16, neighbours at ±40
   for(const [ox,full] of [[-16,true],[-56,false],[24,false]]){const L=new Lot(ox,-16,SEED^(ox*7919),full);genHouse(L);lots.push(L);}
   buildTerrain(7);
-  for(const L of lots){L.mesh=new THREE.Mesh(meshGrid(L.g,V,{tint:0.05}),MAT);L.mesh.position.set(L.ox,L.oy,L.oz);scene.add(L.mesh);addGlass(L);}
+  for(const L of lots){L.mesh=new THREE.Mesh(meshGrid(L.g,V,{tint:0.05,origin:[L.ox,L.oy,L.oz]}),MAT);L.mesh.position.set(L.ox,L.oy,L.oz);scene.add(L.mesh);addGlass(L);}
   lot=lots[0]; K=furnish(lot,null);
   for(const L of lots.slice(1)){const saveP=PC;PC=propColors(mulberry(L.seed));const gx=L.gateX;new Prop(L,'gate',{pos:L.world(gx-3,0,LD-4),room:'yard',name:'a gate',desc:''});new Prop(L,'mailbox',{pos:L.world(gx+5,0,LD-3),room:'yard',name:'a mailbox'});if(L.drive.x0+8<LW&&rng()<0.6)new Prop(L,'car',{pos:L.world(L.drive.x0+2,0,L.drive.z0+8),room:'yard',name:'a car'});PC=saveP;}
-  const sr=mulberry(SEED^0xabc); story=STORIES[Math.floor(sr()*STORIES.length)](lot,K,sr);
+  story=SD.fn(lot,K,sr);
   buildNav(lot);
   // place cast at routine starts
-  for(const c of story.cast){const b=c.b;const e=currentEntry(b)||b.routine[0];const at=e&&e.at;let cell=null; if(at&&at.mesh)cell=standSpot(lot,at); else if(typeof at==='string')cell=roomSpot(lot,at,rng); if(!cell)cell=roomSpot(lot,'living',rng); b.place(cellCenter(lot,...cell)); if(e)startEntry(b,e);}
   clock.min=hm(story.start||'06:20');clock.day=1;setSpeed('normal');
+  for(const c of story.cast){const b=c.b;const e=currentEntry(b)||b.routine[0];const at=e&&e.at;let cell=null; if(at&&at.mesh)cell=standSpot(lot,at); else if(typeof at==='string')cell=roomSpot(lot,at,rng); if(!cell)cell=roomSpot(lot,'living',rng); b.place(cellCenter(lot,...cell)); if(e)startEntry(b,e);}
   // ghost wakes in the room the story names
-  const wakeRoom=story.title==='The Letter'?'hall':story.title==='The Gate'?'yard':'bath'; const c=roomSpot(lot,wakeRoom,rng); const v=cellCenter(lot,...c); ghost.x=v.x;ghost.y=v.y+1.5;ghost.z=v.z;ghost.yaw=Math.PI;ghost.pitch=-0.1;
+  const wakeRoom=story.wakeRoom||'living'; const c=roomSpot(lot,wakeRoom,rng); const v=cellCenter(lot,...c); ghost.x=v.x;ghost.y=v.y+1.5;ghost.z=v.z;ghost.yaw=Math.PI;ghost.pitch=-0.1;ghost.vx=ghost.vy=ghost.vz=0;ghost.roll=0;
   if(wakeRoom==='yard'){ghost.x=lot.ox+lot.gateX*V;ghost.z=lot.oz+(LD-14)*V;ghost.yaw=Math.PI;}
   renderClues();renderCast();renderAbil();renderFrag(); try{$('hypo').value=localStorage.getItem('jq:hypo:'+seedText)||'';}catch(e){}
-  const dow=DOW[1], month=MONTHS[Math.floor(sr()*MONTHS.length)], dayn=14;
-  showOverlay(`<h1>Jacqueline</h1><p class="line">You are somewhere.</p><p class="line">${story.wake[0]}</p><p class="line">${story.wake[1]}</p><p class="line spec">It is ${dow}, ${month} ${dayn}, 1954. You are fairly sure you are dead.</p><button class="primary" id="open">Open your eyes</button><p class="seed line">seed ${seedText}</p>`);
-  $('open').onclick=()=>{AU.init();hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();setTimeout(()=>sys('Move. Slowly at first.'),1500);};
+  const dow=DOW[1], month=era.months[Math.floor(sr()*era.months.length)], dayn=14;
+  showOverlay(`<h1>Jacqueline</h1><p class="line">You are somewhere.</p><p class="line">${story.wake[0]}</p><p class="line">${story.wake[1]}</p><p class="line spec">It is ${dow}, ${month} ${dayn}, ${era.year}. You are fairly sure you are dead.</p><button class="primary" id="open">Open your eyes</button><p class="seed line">seed <input id="seedin" value="${seedText}" autocomplete="off" spellcheck="false"> <button id="reseed" class="quiet" style="opacity:1;padding:6px 10px;font-size:10px">go</button></p>`);
+  $('open').onclick=()=>{AU.init();hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();setTimeout(()=>sys('Move. Slowly at first. Something is carrying you.'),1500);setTimeout(()=>sys('Look closely at things. Hold E. Your journal is J.'),9000);};
+  const reseed=()=>{const v=$('seedin').value.trim();if(v&&v!==seedText)startLeap(v);}; $('reseed').onclick=reseed; $('seedin').addEventListener('keydown',e=>{if(e.key==='Enter')reseed();});
   hingeDone=false;
 }
 let hingeDone=false;
@@ -1048,9 +1242,15 @@ function loop(now){
   requestAnimationFrame(loop); const dt=Math.min(0.05,(now-last)/1000); last=now; if(!lot)return;
   if(!paused){
     // ghost movement
-    const sp=lerp(0.9,5,ghost.legs)*(keys.ShiftLeft?1.6:1); let mx=0,mz=0; if(keys.KeyW)mz+=1;if(keys.KeyS)mz-=1;if(keys.KeyA)mx-=1;if(keys.KeyD)mx+=1; if(stick.active){mx+=stick.x;mz-=stick.y;}
-    const l=Math.hypot(mx,mz);if(l>1){mx/=l;mz/=l;} const sy=Math.sin(ghost.yaw),cy=Math.cos(ghost.yaw); const vx=(-sy*mz+cy*mx)*sp,vz=(-cy*mz-sy*mx)*sp; let vy=((keys.Space||tbtn.up)?1:0)-((keys.ControlLeft||keys.KeyC||tbtn.dn)?1:0);
-    ghost.x+=vx*dt;ghost.z+=vz*dt;ghost.y+=vy*sp*0.7*dt; const moved=Math.hypot(vx,vz)*dt; if(moved>0){const before=ghost.legs;ghost.legs=Math.min(1,ghost.legs+moved/45);if(before<0.5&&ghost.legs>=0.5)sys('Moving is like remembering how.');}
+    // you are a leaf on a slow current: input is a push, not a position; the current fades as you learn to hold yourself
+    const sp=lerp(1.2,5,ghost.legs)*(keys.ShiftLeft?1.6:1); let mx=0,mz=0; if(keys.KeyW)mz+=1;if(keys.KeyS)mz-=1;if(keys.KeyA)mx-=1;if(keys.KeyD)mx+=1; if(stick.active){mx+=stick.x;mz-=stick.y;}
+    const l=Math.hypot(mx,mz);if(l>1){mx/=l;mz/=l;} const sy=Math.sin(ghost.yaw),cy=Math.cos(ghost.yaw); const wx=(-sy*mz+cy*mx)*sp,wz=(-cy*mz-sy*mx)*sp; let vy=((keys.Space||tbtn.up)?1:0)-((keys.ControlLeft||keys.KeyC||tbtn.dn)?1:0);
+    const T=performance.now()*0.001; const ca=noise2(T*0.03,SEED%97)*3.2, cs=(0.45+0.25*noise2(T*0.07+9,3))*(1-ghost.legs*0.75); const cx_=Math.cos(ca)*cs, cz_=Math.sin(ca)*cs; const bob=Math.sin(T*0.9)*0.06*(1-ghost.legs*0.5);
+    const accel=lerp(1.6,6,ghost.legs), damp=Math.exp(-dt*lerp(0.9,3.2,ghost.legs));
+    ghost.vx=(ghost.vx||0)*damp+(wx-(ghost.vx||0))*Math.min(1,accel*dt)+cx_*dt*0.9; ghost.vz=(ghost.vz||0)*damp+(wz-(ghost.vz||0))*Math.min(1,accel*dt)+cz_*dt*0.9;
+    ghost.vy=(ghost.vy||0)*damp+(vy*sp*0.7-(ghost.vy||0))*Math.min(1,accel*dt);
+    ghost.x+=ghost.vx*dt;ghost.z+=ghost.vz*dt;ghost.y+=ghost.vy*dt+bob*dt; ghost.roll=(ghost.roll||0)+((ghost.vx*cy-ghost.vz*sy)*-0.012-(ghost.roll||0))*Math.min(1,dt*3);
+    const moved=Math.hypot(wx,wz)*dt; if(moved>0){const before=ghost.legs;ghost.legs=Math.min(1,ghost.legs+moved/45);if(before<0.5&&ghost.legs>=0.5)sys('Moving is like remembering how. The current lets go a little.');}
     const gh=groundH(Math.floor(ghost.x),Math.floor(ghost.z))+1; ghost.y=clamp(ghost.y,gh+0.3,gh+40); ghost.x=clamp(ghost.x,-100,100);ghost.z=clamp(ghost.z,-100,100);
     // clock
     const dtMin=dt*clock.speed; const prev=clock.min; clock.min+=dtMin; if(clock.min>=1440){clock.min-=1440;clock.day++;}
@@ -1063,12 +1263,12 @@ function loop(now){
     focus=findFocus(); if(attending)attendTick(dt); else {ghost.charging=0;}
     renderFocus();
   }
-  camera.position.set(ghost.x,ghost.y,ghost.z); camera.rotation.set(ghost.pitch,ghost.yaw,0,'YXZ');
+  camera.position.set(ghost.x,ghost.y,ghost.z); camera.rotation.set(ghost.pitch,ghost.yaw,ghost.roll||0,'YXZ');
   applySky(); renderer.render(scene,camera);
   $('clk').textContent=fmtTime(clock.min); $('day').textContent=`${DOW[(clock.day)%7]} · day ${clock.day}`+(clock.mode!=='normal'?' · '+clock.mode:''); $('pbar').style.transform=`scaleX(${ghost.presence})`; $('vig').style.opacity=1.3-ghost.presence*0.5;
 }
 function boot(){ let s='';try{s=localStorage.getItem('jq:last')||'';}catch(e){} startLeap(s||'hill street'); requestAnimationFrame(loop); }
-window.__ghost={startLeap,get clock(){return clock;},get people(){return people;},get pets(){return pets;},get story(){return story;},ghost,setSpeed,useAbility,get lot(){return lot;},anomaly,addClue,get clues(){return clues;},get paused(){return paused;},setPaused,get focus(){return focus;},ABIL,attendDone,get K(){return K;}};
+window.__ghost={startLeap,fall,get era(){return era;},get clock(){return clock;},get people(){return people;},get pets(){return pets;},get story(){return story;},ghost,setSpeed,useAbility,get lot(){return lot;},anomaly,addClue,get clues(){return clues;},get paused(){return paused;},setPaused,get focus(){return focus;},ABIL,attendDone,get K(){return K;}};
 window.claude?.hot?.snapshot?.(()=>({seed:seedText}));
 if(window.claude?.hot?.ready)window.claude.hot.ready(boot); else boot();
 })();
