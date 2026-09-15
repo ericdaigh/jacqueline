@@ -240,6 +240,13 @@ function meshGrid(g,s,opts={}){
 }
 // Voxel model DSL: build small grids from box lists. Returns {grid, size}
 function model(W,H,D,fn){const g=new Grid(W,H,D);fn(g);return g;}
+function upscale(g,k=2){const n=new Grid(g.W*k,g.H*k,g.D*k);for(let x=0;x<g.W;x++)for(let z=0;z<g.D;z++){const base=(x*g.D+z)*g.H;for(let y=0;y<g.H;y++){const v=g.a[base+y];if(!v)continue;for(let dx=0;dx<k;dx++)for(let dy=0;dy<k;dy++)for(let dz=0;dz<k;dz++)n.a[((x*k+dx)*n.D+z*k+dz)*n.H+y*k+dy]=v;}}return n;}
+// chamfer: drop voxels that sit on a convex edge (empty in two orthogonal directions). only=palette index to restrict to one material
+function chamfer(g,only=0){const src=g.a.slice();const get=(x,y,z)=>(x<0||y<0||z<0||x>=g.W||y>=g.H||z>=g.D)?0:src[(x*g.D+z)*g.H+y];
+  for(let x=0;x<g.W;x++)for(let z=0;z<g.D;z++)for(let y=0;y<g.H;y++){const v=get(x,y,z);if(!v||(only&&v!==only))continue;
+    const ex=!get(x-1,y,z)||!get(x+1,y,z), ey=!get(x,y-1,z)||!get(x,y+1,z), ez=!get(x,y,z-1)||!get(x,y,z+1);
+    const xp=!get(x+1,y,z),xm=!get(x-1,y,z),yp=!get(x,y+1,z),ym=!get(x,y-1,z),zp=!get(x,y,z+1),zm=!get(x,y,z-1);
+    if((xp||xm)&&(yp||ym)||(xp||xm)&&(zp||zm)||(yp||ym)&&(zp||zm))g.a[(x*g.D+z)*g.H+y]=0;}}
 
 // ═══════════════════════════ SCENE ═══════════════════════════
 const canvas=$('c');
@@ -420,7 +427,7 @@ function genHouse(lot){
   for(let z=z0-3;z<z0+D+3;z++){const dz=Math.min(z-(z0-3),(z0+D+2)-z);const ry=WT+1+Math.floor(dz*0.5);for(let x=x0-3;x<x0+W+3;x++){g.set(x,ry,z,c.roof);g.set(x,ry-1,z,c.roof);}}
   for(let z=z0;z<z0+D;z++){const dz=Math.min(z-(z0-3),(z0+D+2)-z);const ry=WT+1+Math.floor(dz*0.5);for(let y=WT;y<ry-1;y++){g.set(x0,y,z,c.siding);g.set(x0+W-1,y,z,c.siding);}}
   // openings: doors (3w x 8h) and windows (4w x 4h at y 5..9)
-  const door=(x,y,z,w,h,d)=>g.box(x,y,z,w,h,d,0);
+  lot.doors=[]; const door=(x,y,z,w,h,d)=>{g.box(x,y,z,w,h,d,0);lot.doors.push({x,y,z,w,h,d});};
   const frontDoorX=rooms.living.x0+Math.floor((rooms.living.x1-rooms.living.x0)/2)-1;
   door(frontDoorX,FL,z0+D-1,3,8,1); lot.frontDoor=[frontDoorX+1,z0+D-1];
   const backDoorZ=rooms.kitchen.z0+4; door(x0+W-1,FL,backDoorZ,1,8,3); lot.backDoor=[x0+W-1,backDoorZ+1];
@@ -458,7 +465,7 @@ function genHouse(lot){
   const tx=R(8,20), tz=R(10,40); const tr=P('#5a4630','bark'),lf=P(PK(['#3f8a3a','#4c8f3a','#8a7a2c']),'leaf');
   g.box(tx,0,tz,2,20,2,tr); for(let x=-10;x<=10;x++)for(let y=-7;y<=7;y++)for(let z=-10;z<=10;z++){if(x*x*0.9+y*y*1.6+z*z*0.9<=100&&hash(x+tx,y,z+tz)>0.15)g.set(tx+1+x,20+y,tz+1+z,lf);}
   rooms.yard={x0:Math.max(2,x0-12),x1:Math.min(LW-2,x0+W+12),z0:pz0+pd+2,z1:LD-6,name:'the front yard'};
-  lot.house={x0,z0,W,D,FL,WT,zs,xs};
+  lot.house={x0,z0,W,D,FL,WT,zs,xs,c,tr,lf};
 }
 // glass panes as translucent quads
 function addGlass(lot){
@@ -467,6 +474,33 @@ function addGlass(lot){
     if(w.d===1){const zc=z+V*0.5;Pp.push(x,y,zc,x+W,y,zc,x+W,y+H,zc,x,y+H,zc);}else{const xc=x+V*0.5;Pp.push(xc,y,z,xc,y,z+D,xc,y+H,z+D,xc,y+H,z);}
     I.push(vi,vi+1,vi+2,vi,vi+2,vi+3,vi,vi+2,vi+1,vi,vi+3,vi+2);vi+=4;}
   geo.setAttribute('position',new THREE.Float32BufferAttribute(Pp,3));geo.setIndex(I);const m=new THREE.Mesh(geo,MAT_GLASS);m.renderOrder=2;scene.add(m);
+}
+function refine(lot){ // 0.25 m logic grid -> 0.125 m render grid with the details a voxel of that size can carry
+  const g=lot.g, h=lot.house, c=h.c, f=upscale(g,2), K=2; const trim=P('#f3efe4','wood'), trimD=P('#5a4634','wood'), mullion=P('#f6f3ea','wood');
+  const ins=(x,y,z,v)=>f.set(x,y,z,v);
+  // roof: clear the coarse stairs and lay a gentler one
+  for(let i=0;i<f.a.length;i++)if(f.a[i]===c.roof)f.a[i]=0;
+  const z0f=(h.z0-3)*K, z1f=(h.z0+h.D+3)*K, x0f=(h.x0-3)*K, x1f=(h.x0+h.W+3)*K, top=(h.WT+1)*K;
+  for(let z=z0f;z<z1f;z++){const dz=Math.min(z-z0f,(z1f-1)-z);const ry=top+Math.floor(dz*0.5);for(let x=x0f;x<x1f;x++){for(let t=0;t<3;t++)ins(x,ry-t,z,c.roof);}}
+  for(let z=h.z0*K;z<(h.z0+h.D)*K;z++){const dz=Math.min(z-z0f,(z1f-1)-z);const ry=top+Math.floor(dz*0.5);for(let y=h.WT*K;y<ry-2;y++)for(const x of [h.x0*K,h.x0*K+1,(h.x0+h.W-1)*K,(h.x0+h.W-1)*K+1])if(!f.get(x,y,z))ins(x,y,z,c.siding);}
+  // baseboards and crown inside each room
+  const FLf=h.FL*K, WTf=h.WT*K;
+  for(const k in lot.rooms){ if(k==='porch'||k==='yard')continue; const rm=lot.rooms[k]; const X0=rm.x0*K,X1=rm.x1*K,Z0=rm.z0*K,Z1=rm.z1*K;
+    for(let x=X0;x<X1;x++){ if(f.get(x,FLf+2,Z0-1)){ins(x,FLf,Z0,trimD);ins(x,FLf+1,Z0,trimD);ins(x,WTf-1,Z0,trim);} if(f.get(x,FLf+2,Z1)){ins(x,FLf,Z1-1,trimD);ins(x,FLf+1,Z1-1,trimD);ins(x,WTf-1,Z1-1,trim);} }
+    for(let z=Z0;z<Z1;z++){ if(f.get(X0-1,FLf+2,z)){ins(X0,FLf,z,trimD);ins(X0,FLf+1,z,trimD);ins(X0,WTf-1,z,trim);} if(f.get(X1,FLf+2,z)){ins(X1-1,FLf,z,trimD);ins(X1-1,FLf+1,z,trimD);ins(X1-1,WTf-1,z,trim);} } }
+  // window frames and muntins
+  for(const w of lot.windows){ const X=w.x*K,Y=w.y*K,Z=w.z*K,Wd=w.w*K,Hh=w.h*K,Dd=w.d*K;
+    for(let x=X;x<X+Wd;x++)for(let y=Y;y<Y+Hh;y++)for(let z=Z;z<Z+Dd;z++){ const edge=(w.d===1)?(x===X||x===X+Wd-1||y===Y||y===Y+Hh-1):(z===Z||z===Z+Dd-1||y===Y||y===Y+Hh-1); if(edge){ins(x,y,z,trim);continue;}
+      const mid=(w.d===1)?(z===Z+1):(x===X+1); const cx=(w.d===1)?(x===X+Math.floor(Wd/2)):(z===Z+Math.floor(Dd/2)); const cy=(y===Y+Math.floor(Hh*0.45)); if(mid&&(cx||cy))ins(x,y,z,mullion); }
+    for(let i=-1;i<=((w.d===1)?Wd:Dd);i++){ if(w.d===1){ins(X+i,Y-1,Z-1,trim);ins(X+i,Y-1,Z+Dd,trim);} else {ins(X-1,Y-1,Z+i,trim);ins(X+Wd,Y-1,Z+i,trim);} } }
+  // door casings
+  for(const d of lot.doors){ const X=d.x*K,Y=d.y*K,Z=d.z*K,Wd=d.w*K,Hh=d.h*K,Dd=d.d*K;
+    if(d.d===1){for(let y=Y;y<Y+Hh+1;y++){ins(X-1,y,Z-1,trim);ins(X-1,y,Z+Dd,trim);ins(X+Wd,y,Z-1,trim);ins(X+Wd,y,Z+Dd,trim);} for(let x=X-1;x<=X+Wd;x++){ins(x,Y+Hh,Z-1,trim);ins(x,Y+Hh,Z+Dd,trim);}}
+    else {for(let y=Y;y<Y+Hh+1;y++){ins(X-1,y,Z-1,trim);ins(X+Wd,y,Z-1,trim);ins(X-1,y,Z+Dd,trim);ins(X+Wd,y,Z+Dd,trim);} for(let z=Z-1;z<=Z+Dd;z++){ins(X-1,Y+Hh,z,trim);ins(X+Wd,Y+Hh,z,trim);}} }
+  // pointed pickets, rounder tree
+  for(let x=0;x<f.W;x++)for(let z=0;z<f.D;z++){ if(f.get(x,9,z)===c.fence&&!f.get(x,10,z)&&((x&1)===0))f.set(x,9,z,0); }
+  chamfer(f,h.lf);
+  lot.gf=f;
 }
 function roomAt(lot,lx,lz){for(const k in lot.rooms){const r=lot.rooms[k];if(lx>=r.x0&&lx<r.x1&&lz>=r.z0&&lz<r.z1)return k;}return 'yard';}
 function roomAtWorld(lot,wx,wz){const [lx,lz]=lot.toLocal(wx,wz);if(lx<0||lz<0||lx>=LW||lz>=LD)return 'outside';return roomAt(lot,lx,lz);}
@@ -548,6 +582,7 @@ const PROPS={
   ticket:{s:S8,W:3,H:1,D:2,move:true,b:(g,c)=>{g.box(0,0,0,3,1,2,c.paper);g.set(0,0,0,c.red);}},
   jacket:{s:S8,W:4,H:8,D:2,move:true,b:(g,c)=>{g.box(0,0,0,4,8,2,c.blanket);g.box(1,6,1,2,2,1,c.fabric2);}},
 };
+const ROUNDED=new Set(['sofa','armchair','bed','bedTwin','cup','kettle','vase','tub','fridge','car','floorLamp','tableLamp','radio','tv','pillBottle','bathSink','rocker','trashcan','canisters','breadbox','doghouse','mailbox']);
 let propId=0;
 class Prop{
   constructor(lot,type,opts){
@@ -556,7 +591,8 @@ class Prop{
     this.key=opts.key||null; this.state=Object.assign({},opts.state||{}); this.room=opts.room||null; this.hidden=!!opts.hidden; this.read=opts.read||null; this.clue=opts.clue||null;
     let g=model(def.W,def.H,def.D,gg=>def.b(gg,PC)); const rot=opts.rot||0; g=rotateGrid(g,rot); this.rot=rot;
     this.grid=g; this.s=def.s; this.size=[g.W*def.s,g.H*def.s,g.D*def.s];
-    this.mesh=new THREE.Mesh(meshGrid(g,def.s,{tint:0.04}),MAT_IN); this.mesh.userData.prop=this;
+    let rg=g, rs=def.s; if(!def.wall&&g.W*g.H*g.D<=20000){rg=upscale(g,2);rs=def.s/2;if(ROUNDED.has(type))chamfer(rg);}
+    this.mesh=new THREE.Mesh(meshGrid(rg,rs,{tint:0.04}),MAT_IN); this.mesh.userData.prop=this;
     this.pos=opts.pos.clone(); this.home=opts.pos.clone(); this.mesh.position.copy(this.pos); this.mesh.visible=!this.hidden; scene.add(this.mesh);
     this.box=new THREE.Box3(); this.updateBox(); lot.props.push(this);
   }
@@ -716,7 +752,7 @@ function humanParts(p){ // p: {h:14|10, pants, shirt, skin, hair, dress, long, a
   const HH=headH*2; // head at double resolution so a face can have two eyes, a nose and a mouth
   const head=model(8,HH,8,g=>{ g.box(0,0,0,8,HH,8,p.skin); g.box(0,HH-2,0,8,2,8,p.hair); g.box(0,2,0,8,HH-2,2,p.hair); g.box(0,HH-3,0,8,1,1,p.hair); if(p.long){g.box(0,0,0,2,HH,4,p.hair);g.box(6,0,0,2,HH,4,p.hair);} if(p.bun){g.box(2,HH-3,-0,4,3,1,p.hair);g.box(2,HH-4,0,4,4,1,p.hair);} if(!p.dress&&!p.long){g.box(0,HH-2,3,2,2,5,p.skin);g.box(0,HH-2,2,1,1,1,p.skin);}
     const ey=Math.floor(HH*0.58); g.set(2,ey,7,PC.black); g.set(5,ey,7,PC.black); g.set(2,ey+1,7,p.hair); g.set(5,ey+1,7,p.hair); g.box(3,ey-2,7,2,2,1,P('#c9987a')); g.box(2,Math.max(0,ey-4),7,4,1,1,P('#a8705c')); if(p.age>60){g.set(1,ey-1,7,P('#d8b39a'));g.set(6,ey-1,7,P('#d8b39a'));} });
-  return {legL,legR,body,head,legH,torsoH,headH,sk};
+  return {legL:upscale(legL),legR:upscale(legR),body:upscale(body),head,legH,torsoH,headH,sk};
 }
 function dogGrid(c){return model(4,6,9,g=>{g.box(0,2,1,4,3,6,c);g.box(0,0,1,1,2,1,c);g.box(3,0,1,1,2,1,c);g.box(0,0,6,1,2,1,c);g.box(3,0,6,1,2,1,c);g.box(0,3,7,4,3,2,c);g.box(1,5,8,2,1,1,PC.black);g.box(1,4,0,2,2,1,c);g.set(0,5,7,PC.black);g.set(3,5,7,PC.black);});}
 function catGrid(c){return model(3,4,7,g=>{g.box(0,1,1,3,2,5,c);g.box(0,0,1,1,1,1,c);g.box(2,0,1,1,1,1,c);g.box(0,0,5,1,1,1,c);g.box(2,0,5,1,1,1,c);g.box(0,2,5,3,2,2,c);g.set(0,3,6,PC.black);g.set(2,3,6,PC.black);g.box(1,2,0,1,2,1,c);});}
@@ -727,9 +763,10 @@ class Being{
     this.fear=0;this.state={};this.routine=o.routine||[];this.cur=null;this.path=null;this.pathI=0;this.target=null;this.speed=o.speed||1.3;
     if(o.parts){ const P_=o.parts, s=S8; this.mesh=new THREE.Group(); this.parts=P_;
       const mk=(g,tx,ty,tz,sc=s)=>{const geo=meshGrid(g,sc,{tint:0.03});geo.translate(tx,ty,tz);const m=new THREE.Mesh(geo,MAT_IN);m.userData.being=this;this.mesh.add(m);return m;};
-      this.legL=mk(P_.legL,-2*s,-P_.legH*s,-1*s); this.legL.position.y=P_.legH*s;
-      this.legR=mk(P_.legR,0,-P_.legH*s,-1*s); this.legR.position.y=P_.legH*s;
-      this.body=mk(P_.body,-3*s,-P_.sk*s,-2*s); this.body.position.y=P_.legH*s;
+      chamfer(P_.body); chamfer(P_.head);
+      this.legL=mk(P_.legL,-2*s,-P_.legH*s,-1*s,s/2); this.legL.position.y=P_.legH*s;
+      this.legR=mk(P_.legR,0,-P_.legH*s,-1*s,s/2); this.legR.position.y=P_.legH*s;
+      this.body=mk(P_.body,-3*s,-P_.sk*s,-2*s,s/2); this.body.position.y=P_.legH*s;
       this.head=mk(P_.head,-2*s,0,-2*s,s/2); this.head.position.y=(P_.legH+P_.torsoH)*s;
       this.size=[6*s,(P_.legH+P_.torsoH+P_.headH)*s,4*s]; this.grid={W:6,H:P_.legH+P_.torsoH+P_.headH,D:4};
     } else { this.grid=o.grid;const geo=meshGrid(this.grid,S8,{tint:0.03});geo.translate(-this.grid.W*S8/2,0,-this.grid.D*S8/2);this.mesh=new THREE.Mesh(geo,MAT_IN);this.mesh.userData.being=this; this.size=[this.grid.W*S8,this.grid.H*S8,this.grid.D*S8]; }
@@ -1207,7 +1244,7 @@ function startLeap(seed,opts={}){
   // lots: main at x=-16, neighbours at ±40
   for(const [ox,full] of [[-16,true],[-56,false],[24,false]]){const L=new Lot(ox,-16,SEED^(ox*7919),full);genHouse(L);lots.push(L);}
   buildTerrain(7);
-  for(const L of lots){L.mesh=new THREE.Mesh(meshGrid(L.g,V,{tint:0.05,origin:[L.ox,L.oy,L.oz]}),MAT);L.mesh.position.set(L.ox,L.oy,L.oz);scene.add(L.mesh);addGlass(L);}
+  for(const L of lots){ if(L.full){refine(L);L.mesh=new THREE.Mesh(meshGrid(L.gf,V/2,{tint:0.05,origin:[L.ox,L.oy,L.oz]}),MAT);} else L.mesh=new THREE.Mesh(meshGrid(L.g,V,{tint:0.05,origin:[L.ox,L.oy,L.oz]}),MAT);L.mesh.position.set(L.ox,L.oy,L.oz);scene.add(L.mesh);addGlass(L);}
   lot=lots[0]; K=furnish(lot,null);
   for(const L of lots.slice(1)){const saveP=PC;PC=propColors(mulberry(L.seed));const gx=L.gateX;new Prop(L,'gate',{pos:L.world(gx-3,0,LD-4),room:'yard',name:'a gate',desc:''});new Prop(L,'mailbox',{pos:L.world(gx+5,0,LD-3),room:'yard',name:'a mailbox'});if(L.drive.x0+8<LW&&rng()<0.6)new Prop(L,'car',{pos:L.world(L.drive.x0+2,0,L.drive.z0+8),room:'yard',name:'a car'});PC=saveP;}
   story=SD.fn(lot,K,sr);
@@ -1335,14 +1372,17 @@ function loop(now){
   if(!paused){
     // ghost movement
     // you are a leaf on a slow current: input is a push, not a position; the current fades as you learn to hold yourself
-    const sp=lerp(1.2,5,ghost.legs)*(keys.ShiftLeft?1.6:1); let mx=0,mz=0; if(keys.KeyW)mz+=1;if(keys.KeyS)mz-=1;if(keys.KeyA)mx-=1;if(keys.KeyD)mx+=1; if(stick.active){mx+=stick.x;mz-=stick.y;}
-    const l=Math.hypot(mx,mz);if(l>1){mx/=l;mz/=l;} const sy=Math.sin(ghost.yaw),cy=Math.cos(ghost.yaw); const wx=(-sy*mz+cy*mx)*sp,wz=(-cy*mz-sy*mx)*sp; let vy=((keys.Space||tbtn.up)?1:0)-((keys.ControlLeft||keys.KeyC||tbtn.dn)?1:0);
+    const sp=lerp(0.8,5,ghost.legs)*(keys.ShiftLeft?1.6:1); let mx=0,mz=0; if(keys.KeyW)mz+=1;if(keys.KeyS)mz-=1;if(keys.KeyA)mx-=1;if(keys.KeyD)mx+=1; if(stick.active){mx+=stick.x;mz-=stick.y;}
+    const l=Math.hypot(mx,mz);if(l>1){mx/=l;mz/=l;}
+    // unlearned: intent comes out rotated, lagged and mirrored; it straightens as you learn
+    const un=Math.pow(1-ghost.legs,1.4); const th=un*2.7+Math.sin(performance.now()*0.0007)*un*0.8; const rm_=mx*Math.cos(th)-mz*Math.sin(th), rz_=mx*Math.sin(th)+mz*Math.cos(th); mx=rm_;mz=rz_;
+    const sy=Math.sin(ghost.yaw),cy=Math.cos(ghost.yaw); const wx=(-sy*mz+cy*mx)*sp,wz=(-cy*mz-sy*mx)*sp; let vy=((keys.Space||tbtn.up)?1:0)-((keys.ControlLeft||keys.KeyC||tbtn.dn)?1:0);
     const T=performance.now()*0.001; const ca=noise2(T*0.03,SEED%97)*3.2, cs=(0.45+0.25*noise2(T*0.07+9,3))*(1-ghost.legs*0.75); const cx_=Math.cos(ca)*cs, cz_=Math.sin(ca)*cs; const bob=Math.sin(T*0.9)*0.06*(1-ghost.legs*0.5);
-    const accel=lerp(1.6,6,ghost.legs), damp=Math.exp(-dt*lerp(0.9,3.2,ghost.legs));
+    const accel=lerp(0.7,6,ghost.legs), damp=Math.exp(-dt*lerp(0.5,3.2,ghost.legs));
     ghost.vx=(ghost.vx||0)*damp+(wx-(ghost.vx||0))*Math.min(1,accel*dt)+cx_*dt*0.9; ghost.vz=(ghost.vz||0)*damp+(wz-(ghost.vz||0))*Math.min(1,accel*dt)+cz_*dt*0.9;
     ghost.vy=(ghost.vy||0)*damp+(vy*sp*0.7-(ghost.vy||0))*Math.min(1,accel*dt);
     ghost.x+=ghost.vx*dt;ghost.z+=ghost.vz*dt;ghost.y+=ghost.vy*dt+bob*dt; ghost.roll=(ghost.roll||0)+((ghost.vx*cy-ghost.vz*sy)*-0.012-(ghost.roll||0))*Math.min(1,dt*3);
-    const moved=Math.hypot(wx,wz)*dt; if(moved>0){const before=ghost.legs;ghost.legs=Math.min(1,ghost.legs+moved/45);if(before<0.5&&ghost.legs>=0.5)sys('Moving is like remembering how. The current lets go a little.');}
+    const moved=Math.hypot(wx,wz)*dt; if(moved>0){const before=ghost.legs;ghost.legs=Math.min(1,ghost.legs+moved/70);if(before<0.2&&ghost.legs>=0.2)sys("It doesn't go where you mean. Not yet.");if(before<0.5&&ghost.legs>=0.5)sys('Moving is like remembering how. The current lets go a little.');if(before<0.9&&ghost.legs>=0.9)sys('There. That is yours now.');}
     const gh=groundH(Math.floor(ghost.x),Math.floor(ghost.z))+1; ghost.y=clamp(ghost.y,gh+0.3,gh+40); ghost.x=clamp(ghost.x,-100,100);ghost.z=clamp(ghost.z,-100,100);
     // clock
     const dtMin=dt*clock.speed; const prev=clock.min; clock.min+=dtMin; if(clock.min>=1440){clock.min-=1440;clock.day++;}
