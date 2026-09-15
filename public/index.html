@@ -26,14 +26,18 @@
   #cross{top:50%;left:50%;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.7);transform:translate(-50%,-50%);mix-blend-mode:difference}
   #ring{top:50%;left:50%;width:26px;height:26px;border-radius:50%;border:2px solid var(--spectral);transform:translate(-50%,-50%);opacity:0;transition:opacity .2s}
   #focus{top:calc(50% + 22px);left:50%;transform:translateX(-50%);text-align:center;max-width:min(420px,80vw);text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  #focus{background:rgba(8,10,14,.7);padding:6px 12px;border-radius:6px}
+  #focus:empty{display:none}
   #focus b{font:400 16px/1.25 "Fraunces",serif;display:block}
   #focus span{font-size:12px;color:var(--ink-dim);display:block;margin-top:2px}
   #focus em{font-size:11px;color:var(--spectral);font-style:normal;letter-spacing:.08em;text-transform:uppercase;display:block;margin-top:4px}
   #subs{bottom:110px;left:50%;transform:translateX(-50%);width:min(560px,90vw);display:grid;gap:6px;text-align:center}
-  .sub{font:italic 300 17px/1.3 "Fraunces",serif;color:var(--ink);text-shadow:0 1px 4px rgba(0,0,0,.9);opacity:0;animation:subin .35s forwards}
+  .sub{font:italic 400 19px/1.35 "Fraunces",serif;color:#fff;background:rgba(8,10,14,.82);padding:8px 14px;border-radius:6px;display:inline-block;justify-self:center;max-width:100%;box-sizing:border-box;text-shadow:none;opacity:0;animation:subin .25s forwards}
   .sub small{display:block;font:500 10px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--lamp);margin-bottom:3px;font-style:normal}
   .sub.ghost{color:var(--spectral)}
-  .sub.sys{font-style:normal;font-size:13px;font-family:"IBM Plex Mono",monospace;color:var(--ink-dim)}
+  .sub.sys{font-style:normal;font-size:13px;font-family:"IBM Plex Mono",monospace;color:#d9d4c6}
+  .sub.ghost{color:#b8f0e3}
+  #subs{display:grid;justify-items:center}
   @keyframes subin{to{opacity:1}}
   #abil{bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:4px;padding:4px;background:var(--panel);border-radius:6px;backdrop-filter:blur(4px);pointer-events:auto}
   .ab{min-width:58px;padding:7px 8px 6px;border-radius:4px;border:1px solid transparent;text-align:center;cursor:pointer;position:relative}
@@ -52,7 +56,11 @@
 
   /* journal */
   #journal{position:fixed;top:0;right:0;bottom:0;width:min(400px,100%);background:#111417;border-left:1px solid var(--line);padding:22px 20px 30px;box-sizing:border-box;overflow-y:auto;z-index:6;display:grid;gap:18px;align-content:start}
-  #journal[hidden]{display:none}
+  #journal[hidden],#help[hidden]{display:none}
+  #help{position:fixed;top:0;right:0;bottom:0;width:min(400px,100%);background:#111417;border-left:1px solid var(--line);padding:22px 20px 30px;box-sizing:border-box;overflow-y:auto;z-index:6;display:grid;gap:14px;align-content:start}
+  #help h2{font:300 26px/1.1 "Fraunces",serif;margin:0}#help h3{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);margin:6px 0 0}
+  .keys{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:13px;margin:0}.keys dt{font:500 12px "IBM Plex Mono",monospace;color:var(--ink);white-space:nowrap}.keys dd{margin:0;color:var(--ink-dim)}
+  #hbtn{position:fixed;top:12px;right:196px;z-index:3;pointer-events:auto;background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);padding:8px 12px;border-radius:4px;font:inherit;font-size:12px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(4px)}
   #journal h2{font:300 26px/1.1 "Fraunces",serif;margin:0;color:var(--ink)}
   #journal h3{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim);margin:6px 0 8px}
   .clue{padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:rgba(255,255,255,.03);font-size:13px;line-height:1.4}
@@ -88,6 +96,7 @@
   body.touch #touch{display:block}
   body.touch #hint{display:none}
   body.touch #time{bottom:auto;top:64px;right:12px;flex-direction:column}
+  body.touch #hbtn{right:auto;left:12px;top:64px}
   #stick{position:absolute;left:24px;bottom:100px;width:110px;height:110px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(0,0,0,.18)}
   #knob{position:absolute;left:33px;top:33px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.5)}
   .tb{position:absolute;pointer-events:auto;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
@@ -101,7 +110,7 @@
 
 <div id="clock" class="hud"><b id="clk">—</b><span id="day">—</span></div>
 <div id="presence" class="hud"><i id="pbar"></i></div><div id="plabel" class="hud">presence</div>
-<button id="jbtn">Journal <b id="jcount"></b></button><button id="mbtn" title="Esc">Menu</button>
+<button id="jbtn">Journal <b id="jcount"></b></button><button id="mbtn" title="Esc">Menu</button><button id="hbtn" title="H">Keys</button>
 <div id="cross" class="hud"></div><div id="ring" class="hud"></div>
 <div id="focus" class="hud"></div>
 <div id="subs" class="hud"></div>
@@ -115,6 +124,34 @@
   <div class="tb" id="b-act">act</div>
 </div>
 
+<aside id="help" hidden>
+  <button class="close" id="hclose">Close</button>
+  <h2>Controls</h2>
+  <dl class="keys">
+    <dt>Mouse</dt><dd>look — click the world to capture the cursor</dd>
+    <dt>W A S D</dt><dd>drift. You have momentum, and a current pushes you until you learn to hold still</dd>
+    <dt>Space / C</dt><dd>rise / sink</dd>
+    <dt>Shift</dt><dd>faster</dd>
+    <dt>Hold E</dt><dd>Attend — look closely at what the crosshair is on. Reads anything readable</dd>
+    <dt>1 – 5, wheel</dt><dd>pick an ability. E or left-click uses it</dd>
+    <dt>Right-click</dt><dd>hold to Attend, whatever is selected</dd>
+    <dt>Q / R</dt><dd>Linger (slow time) / Skip (fast)</dd>
+    <dt>J</dt><dd>Journal — cast, clues, your theory, what you're learning</dd>
+    <dt>H</dt><dd>this panel</dd>
+    <dt>M</dt><dd>mute</dd>
+    <dt>Tab</dt><dd>free the cursor without pausing</dd>
+    <dt>Esc</dt><dd>menu — seed, save to cloud, share</dd>
+  </dl>
+  <h3>Abilities</h3>
+  <dl class="keys">
+    <dt>Attend</dt><dd>always yours. Learning to look is how everything else starts</dd>
+    <dt>Chill</dt><dd>a cold spot on someone near. They feel it; they turn</dd>
+    <dt>Nudge</dt><dd>move a small thing. Things with weight to them are easier</dd>
+    <dt>Beckon</dt><dd>draw the nearest person's eye to a thing</dd>
+    <dt>Echo</dt><dd>see what a room remembers</dd>
+  </dl>
+  <p style="font-size:13px;color:var(--ink-dim);margin:0">Each person is open to one channel — cold, touch, or a glance. Attend them to learn which.</p>
+</aside>
 <aside id="journal" hidden>
   <button class="close" id="jclose">Close</button>
   <h2>Journal</h2>
@@ -1115,7 +1152,7 @@ function applySky(){ const h=(clock.min/60)%24; let i=0; while(i<SKYK.length-2&&
 
 // ═══════════════════════════ INPUT ═══════════════════════════
 const keys={}; let paused=true, isTouch=matchMedia('(pointer:coarse)').matches; let attending=false;
-addEventListener('keydown',e=>{ if(e.code==='Escape'&&!paused&&!overlayBusy){e.preventDefault();cursorFree=false;if(document.pointerLockElement===canvas){document.exitPointerLock();}else{showPause();}return;} if(paused)return; keys[e.code]=true; if(/^Digit[1-5]$/.test(e.code)){ghost.sel=+e.code[5]-1;renderAbil();} if(e.code==='KeyE'){if(ABIL[ghost.sel].id==='attend')attending=true;else if(!e.repeat)useAbility();} if(e.code==='KeyJ'){toggleJournal();} if(e.code==='KeyM'){AU.toggleMute();} if(e.code==='Tab'){e.preventDefault();freeCursor();} if(e.code==='KeyQ')setSpeed('linger'); if(e.code==='KeyR')setSpeed('skip'); if(e.code==='Space')e.preventDefault(); });
+addEventListener('keydown',e=>{ if(e.code==='Escape'&&!paused&&!overlayBusy){e.preventDefault();cursorFree=false;if(document.pointerLockElement===canvas){document.exitPointerLock();}else{showPause();}return;} if(paused)return; keys[e.code]=true; if(/^Digit[1-5]$/.test(e.code)){ghost.sel=+e.code[5]-1;renderAbil();} if(e.code==='KeyE'){if(ABIL[ghost.sel].id==='attend')attending=true;else if(!e.repeat)useAbility();} if(e.code==='KeyJ'){toggleJournal();} if(e.code==='KeyH'){toggleHelp();} if(e.code==='KeyM'){AU.toggleMute();} if(e.code==='Tab'){e.preventDefault();freeCursor();} if(e.code==='KeyQ')setSpeed('linger'); if(e.code==='KeyR')setSpeed('skip'); if(e.code==='Space')e.preventDefault(); });
 addEventListener('keyup',e=>{keys[e.code]=false; if(e.code==='KeyE'){attending=false;ghost.charging=0;$('ring').style.opacity=0;} if(e.code==='KeyQ'||e.code==='KeyR')setSpeed('normal');});
 canvas.addEventListener('mousedown',e=>{ if(isTouch)return; if(document.pointerLockElement!==canvas){if(!paused)canvas.requestPointerLock();return;} if(e.button===0){if(ABIL[ghost.sel].id==='attend')attending=true;else useAbility();} if(e.button===2){ghost.sel=0;renderAbil();attending=true;} });
 addEventListener('mouseup',()=>{attending=false;ghost.charging=0;$('ring').style.opacity=0;});
@@ -1128,7 +1165,9 @@ document.addEventListener('pointerlockchange',()=>{ if(document.pointerLockEleme
 function setSpeed(m){clock.mode=m;clock.speed=m==='linger'?0.2:m==='skip'?10:1;$('t-linger').classList.toggle('on',m==='linger');$('t-skip').classList.toggle('on',m==='skip');}
 $('t-mute').addEventListener('pointerdown',()=>{AU.init();AU.toggleMute();});
 $('t-linger').addEventListener('pointerdown',()=>setSpeed(clock.mode==='linger'?'normal':'linger'));$('t-skip').addEventListener('pointerdown',()=>setSpeed(clock.mode==='skip'?'normal':'skip'));
-function toggleJournal(){const j=$('journal');j.hidden=!j.hidden; if(!j.hidden){document.exitPointerLock&&document.exitPointerLock();overlayBusy=true;} else {overlayBusy=false;if(!isTouch)canvas.requestPointerLock();}}
+function toggleJournal(){const j=$('journal');j.hidden=!j.hidden; if(!j.hidden){$('help').hidden=true;document.exitPointerLock&&document.exitPointerLock();overlayBusy=true;} else {overlayBusy=false;if(!isTouch)canvas.requestPointerLock();}}
+function toggleHelp(){const h=$('help');h.hidden=!h.hidden; if(!h.hidden){$('journal').hidden=true;document.exitPointerLock&&document.exitPointerLock();overlayBusy=true;} else {overlayBusy=false;if(!isTouch)canvas.requestPointerLock();}}
+$('hbtn').addEventListener('click',toggleHelp);$('hclose').addEventListener('click',toggleHelp);
 $('jbtn').addEventListener('click',toggleJournal);$('mbtn').addEventListener('click',()=>{if(paused)return;cursorFree=false;if(document.pointerLockElement===canvas)document.exitPointerLock();else showPause();});$('jclose').addEventListener('click',toggleJournal);
 $('hypo').addEventListener('input',e=>{try{localStorage.setItem('jq:hypo:'+seedText,e.target.value);}catch(x){}});
 // touch
@@ -1179,7 +1218,7 @@ function startLeap(seed,opts={}){
   renderClues();renderCast();renderAbil();renderFrag(); try{$('hypo').value=localStorage.getItem('jq:hypo:'+seedText)||'';}catch(e){}
   const dow=DOW[1], month=era.months[Math.floor(sr()*era.months.length)], dayn=14;
   showOverlay(`<h1>Jacqueline</h1><p class="line">You are somewhere.</p><p class="line">${story.wake[0]}</p><p class="line">${story.wake[1]}</p><p class="line spec">It is ${dow}, ${month} ${dayn}, ${era.year}. You are fairly sure you are dead.</p><button class="primary" id="open">Open your eyes</button><p class="seed line">seed <input id="seedin" value="${seedText}" autocomplete="off" spellcheck="false"> <button id="reseed" class="quiet" style="opacity:1;padding:6px 10px;font-size:10px">go</button></p>${isTouch?'':'<p class="seed line" style="line-height:1.8">WASD drift · Space up · C down · hold E attend · 1–5 abilities · Q linger · R skip · J journal · M mute · Tab free cursor · Esc pause</p>'}`);
-  $('open').onclick=()=>{AU.init();hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();setTimeout(()=>sys('Move. Slowly at first. Something is carrying you.'),1500);setTimeout(()=>sys('Look closely at things. Hold E. Your journal is J.'),9000);};
+  $('open').onclick=()=>{AU.init();hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();setTimeout(()=>sys('Move. Slowly at first. Something is carrying you.'),1500);setTimeout(()=>sys('Look closely at things. Hold E. Journal is J, controls are H.'),9000);};
   const reseed=()=>{const v=$('seedin').value.trim();if(v&&v!==seedText)startLeap(v);}; $('reseed').onclick=reseed; $('seedin').addEventListener('keydown',e=>{if(e.key==='Enter')reseed();});
   hingeDone=false; story._cloudId=null;
   if(opts.quiet){$('overlay').hidden=true;overlayBusy=false;return;}
