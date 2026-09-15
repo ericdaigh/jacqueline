@@ -613,12 +613,23 @@ function wallPos(lot,type,roomKey,wall,along,opts={}){
   else {lx=rm.x1-w-off;lz=rm.z0+along*((rm.z1-rm.z0)-d);}
   return {pos:lot.world(Math.round(lx),y,Math.round(lz)),rot};
 }
+function wallBacked(lot,type,roomKey,wall,along,opts){ // true if the wall behind a mounted prop is solid across its whole span
+  const rm=lot.rooms[roomKey], def=PROPS[type], rot={N:0,S:2,W:3,E:1}[wall]; const w=Math.ceil(((wall==='N'||wall==='S')?(rot%2===0?def.W:def.D):(rot%2===0?def.D:def.W))*def.s/V)+1, hgt=Math.ceil(def.H*def.s/V)+1;
+  const y0=opts.y!==undefined?opts.y:lot.house.FL; const {pos}=wallPos(lot,type,roomKey,wall,along,opts); const [lx,lz]=lot.toLocal(pos.x+0.001,pos.z+0.001);
+  for(let y=y0;y<y0+hgt;y++)for(let i=0;i<w;i++){ let bx,bz; if(wall==='N'){bx=lx+i;bz=rm.z0-1;} else if(wall==='S'){bx=lx+i;bz=rm.z1;} else if(wall==='W'){bx=rm.x0-1;bz=lz+i;} else {bx=rm.x1;bz=lz+i;} if(!lot.g.get(bx,y,bz))return false; }
+  return true;
+}
 function addProp(lot,type,roomKey,wall,along,opts={}){
+  const def=PROPS[type];
+  if(def.wall){ // find solid wall: try the requested spot, then slide outward in both directions
+    let best=null; for(let k=0;k<=12&&best===null;k++){for(const sgn of (k===0?[0]:[1,-1])){const a=clamp(along+sgn*k*0.07,0,1); if(wallBacked(lot,type,roomKey,wall,a,opts)){best=a;break;}}}
+    if(best!==null)along=best; }
   const {pos,rot}=wallPos(lot,type,roomKey,wall,along,opts); if(opts.dy)pos.y+=opts.dy; if(opts.dx)pos.x+=opts.dx; if(opts.dz)pos.z+=opts.dz;
+  if(def.wall){const e=0.02; if(rot===0)pos.z+=e; else if(rot===2)pos.z-=e; else if(rot===3)pos.x+=e; else pos.x-=e;} else pos.y+=0.006;
   return new Prop(lot,type,Object.assign({pos,rot,room:roomKey},opts));
 }
 function onTop(lot,type,parent,fx,fz,opts={}){ // place small prop on top of parent at fractions of its footprint
-  const def=PROPS[type]; const pos=new THREE.Vector3(parent.pos.x+fx*parent.size[0]-def.W*def.s/2,parent.pos.y+parent.size[1],parent.pos.z+fz*parent.size[2]-def.D*def.s/2);
+  const def=PROPS[type]; const pos=new THREE.Vector3(parent.pos.x+fx*parent.size[0]-def.W*def.s/2,parent.pos.y+parent.size[1]+0.006,parent.pos.z+fz*parent.size[2]-def.D*def.s/2);
   return new Prop(lot,type,Object.assign({pos,rot:opts.rot||0,room:parent.room},opts));
 }
 function furnish(lot,cast){
@@ -1153,13 +1164,25 @@ function useAbility(){
   else if(ab.id==='echo'){ const room=roomAtWorld(lot,ghost.x,ghost.z); const e=story.echoes[room]; if(!e){sys('This room remembers nothing it will show you.');return;} if(e.played){sys('You have seen this.');return;} ghost.presence-=ab.cost;ghost.n.echo++;AU.play('echo',new THREE.Vector3(ghost.x,ghost.y,ghost.z));playEcho(e); }
   renderAbil();
 }
-function fall(p){ // drop a prop to the floor below it
+// highest support under (x,z) below the prop: floor, or the top of another prop, or a solid voxel column
+function landingY(p,x,z){
+  const [lx,lz]=lot.toLocal(x,z); if(lx<0||lz<0||lx>=LW||lz>=LD)return null;
+  let y=-1e9; const startV=Math.floor((p.pos.y-lot.oy)/V);
+  for(let v=Math.min(startV,LH-1);v>=0;v--){ if(lot.g.get(lx,v,lz)){y=lot.oy+(v+1)*V;break;} }
+  if(y<-1e8)y=lot.oy; // terrain
+  for(const q of lot.props){ if(q===p||q.hidden||q.tags.wall||q.tags.walk)continue; if(x>=q.pos.x&&x<=q.pos.x+q.size[0]&&z>=q.pos.z&&z<=q.pos.z+q.size[2]){const top=q.pos.y+q.size[1]; if(top<=p.pos.y+0.01&&top>y)y=top;} }
+  return y;
+}
+function insideWall(lot,x,y,z,p){ const [lx,lz]=lot.toLocal(x,z); const v0=Math.floor((y-lot.oy)/V)+1; const w=Math.ceil(p.size[0]/V),d=Math.ceil(p.size[2]/V),h=Math.max(1,Math.ceil(p.size[1]/V)); for(let i=0;i<w;i++)for(let k=0;k<d;k++)for(let j=0;j<h;j++)if(lot.g.get(lx+i,v0+j,lz+k))return true; return false; }
+function fall(p){ // drop a prop onto whatever is actually beneath it
   p.displaced=true;
-  const floor=lot.oy+(roomAtWorld(lot,p.pos.x,p.pos.z)==='yard'||roomAtWorld(lot,p.pos.x,p.pos.z)==='porch'?0:lot.house.FL)*V;
-  const dx=(rng()-0.5)*0.5,dz=(rng()-0.5)*0.5; const target=new THREE.Vector3(p.pos.x+dx,floor,p.pos.z+dz);
-  if(p.pos.y-floor<0.05){target.y=p.pos.y;target.x+=dx;target.z+=dz;}
-  p.falling={from:p.pos.clone(),to:target,t:0}; const loud=(p.tags.fragile?0.8:0.5)+(p.tags.sentimental?0.15:0); setTimeout(()=>AU.play(p.tags.fragile&&p.home.y-floor>0.3?'break':'thud',target),450);
-  setTimeout(()=>{ if(p.tags.fragile&&p.pos.y-floor>0.3){} anomaly({type:'fall',pos:target.clone(),prop:p,loud}); sys(p.tags.fragile&&p.home.y-floor>0.3?`${cap(p.name)} falls and breaks.`:`${cap(p.name)} falls.`); if(p.tags.fragile&&p.home.y-floor>0.3){p.name=p.name.replace(/^a |^the /,'')+', broken';p.desc='In pieces.';} },600);
+  const floor=landingY(p,p.pos.x,p.pos.z); let target=null;
+  const cands=[[0,0]]; for(let k=0;k<10;k++)cands.push([(rng()-0.5)*0.7,(rng()-0.5)*0.7]); cands.sort(()=>0.5-rng()); cands.unshift([(rng()-0.5)*0.4,(rng()-0.5)*0.4]);
+  for(const [dx,dz] of cands){ const x=p.pos.x+dx,z=p.pos.z+dz; const y=landingY(p,x,z); if(y===null||y>p.pos.y+0.01)continue; if(insideWall(lot,x,y,z,p))continue; target=new THREE.Vector3(x,y,z); break; }
+  if(!target)target=new THREE.Vector3(p.pos.x,floor??p.pos.y,p.pos.z);
+  if(Math.abs(p.pos.y-target.y)<0.05){ /* already on a surface: just slide */ }
+  p.falling={from:p.pos.clone(),to:target,t:0}; const loud=(p.tags.fragile?0.8:0.5)+(p.tags.sentimental?0.15:0); setTimeout(()=>AU.play(p.tags.fragile&&p.home.y-target.y>0.3?'break':'thud',target),450);
+  setTimeout(()=>{  anomaly({type:'fall',pos:target.clone(),prop:p,loud}); sys(p.tags.fragile&&p.home.y-target.y>0.3?`${cap(p.name)} falls and breaks.`:`${cap(p.name)} falls.`); if(p.tags.fragile&&p.home.y-target.y>0.3){p.name=p.name.replace(/^a |^the /,'')+', broken';p.desc='In pieces.';} },600);
 }
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 const echoMeshes=[];
@@ -1311,10 +1334,10 @@ function fireHinge(){
 
 
 // ═══════════════════════════ AUDIO (all synthesized, Web Audio) ═══════════════════════════
-const SOUND_CATS=['ambience','crickets','radio','people','objects','ghost'];
-const SOUND_LABEL={ambience:'Wind & house',crickets:'Crickets',radio:'Radio / TV',people:'Footsteps & voices',objects:'Things falling, doors, gates',ghost:'Your acts & learning'};
+const SOUND_CATS=['music','ambience','crickets','radio','people','objects','ghost'];
+const SOUND_LABEL={music:'Drone & bells',ambience:'Wind & house',crickets:'Crickets',radio:'Radio / TV',people:'Footsteps & voices',objects:'Things falling, doors, gates',ghost:'Your acts & learning'};
 const SOUND_KIND={step:'people',paw:'people',voice:'people',bark:'people',thud:'objects',break:'objects',drawer:'objects',gate:'objects',chill:'ghost',beckon:'ghost',echo:'ghost',unlock:'ghost'};
-const AU={ctx:null,on:false,loops:{},vol:(()=>{const d={ambience:1,crickets:0,radio:1,people:1,objects:1,ghost:1};try{Object.assign(d,JSON.parse(localStorage.getItem('jq:vol')||'{}'));}catch(e){}return d;})(),
+const AU={ctx:null,on:false,loops:{},vol:(()=>{const d={music:0.6,ambience:1,crickets:0,radio:1,people:1,objects:1,ghost:1};try{Object.assign(d,JSON.parse(localStorage.getItem('jq:vol')||'{}'));}catch(e){}return d;})(),
   setVol(k,v){ this.vol[k]=v; if(this.bus&&this.bus[k])this.bus[k].gain.setTargetAtTime(v,this.ctx.currentTime,0.05); try{localStorage.setItem('jq:vol',JSON.stringify(this.vol));}catch(e){} },
   init(){ try{this.muted=localStorage.getItem('jq:muted')==='1';$('t-mute').classList.toggle('on',this.muted);}catch(e){} if(this.ctx){this.ctx.resume();return;} try{const C=window.AudioContext||window.webkitAudioContext;this.ctx=new C();}catch(e){return;} const c=this.ctx;
     this.master=c.createGain();this.master.gain.value=0.6;this.master.connect(c.destination);
@@ -1325,7 +1348,13 @@ const AU={ctx:null,on:false,loops:{},vol:(()=>{const d={ambience:1,crickets:0,ra
     this.loops.crickets=this.loop({type:'noise',filter:['bandpass',2600,4],gain:0.0,pulse:7,cat:'crickets'});
     this.loops.radio=this.loop({type:'noise',filter:['bandpass',1100,3],gain:0.0,tune:true,cat:'radio'});
     this.loops.hum=this.loop({type:'osc',freq:52,gain:0.0,cat:'ambience'});
-    this.on=true; },
+    this.on=true; this.startDrone(); },
+  startDrone(){ const c=this.ctx; const bus=this.bus.music; this.drone=[]; const chords=[[110,164.81,220,329.63],[98,146.83,196,293.66]]; // A minor-ish / G
+    for(let i=0;i<4;i++){const o=c.createOscillator();o.type=i<2?'sine':'triangle';o.frequency.value=chords[0][i];const g=c.createGain();g.gain.value=0;const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=600;const pan=c.createStereoPanner();pan.pan.value=(i-1.5)*0.3;o.connect(f);f.connect(g);g.connect(pan);pan.connect(bus);o.start();
+      const lfo=c.createOscillator();lfo.frequency.value=0.05+i*0.017;const lg=c.createGain();lg.gain.value=0.012;lfo.connect(lg);lg.connect(g.gain);lfo.start(); this.drone.push({o,g,f,i});}
+    this.droneChord=0; this.nextBell=performance.now()+15000; },
+  bell(){ if(!this.on)return; const c=this.ctx,t=c.currentTime; const notes=[440,523.25,587.33,659.25,783.99,880]; const f=notes[Math.floor(Math.random()*notes.length)]*(Math.random()<0.3?0.5:1);
+    for(const [mult,amp,dur] of [[1,0.05,4],[2.01,0.015,2.5],[3.02,0.006,1.5]]){const o=c.createOscillator();o.type='sine';o.frequency.value=f*mult;const g=c.createGain();g.connect(this.bus.music);o.connect(g);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(amp,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.start(t);o.stop(t+dur+0.1);} },
   loop(o){ const c=this.ctx; let src; if(o.type==='noise'){src=c.createBufferSource();src.buffer=this.noise;src.loop=true;} else {src=c.createOscillator();src.type='sine';src.frequency.value=o.freq;}
     let node=src; if(o.filter){const f=c.createBiquadFilter();f.type=o.filter[0];f.frequency.value=o.filter[1];f.Q.value=o.filter[2];node.connect(f);node=f;}
     const g=c.createGain();g.gain.value=o.gain;node.connect(g);const pan=c.createStereoPanner();g.connect(pan);pan.connect(this.bus[o.cat||'ambience']);
@@ -1354,6 +1383,10 @@ const AU={ctx:null,on:false,loops:{},vol:(()=>{const d={ambience:1,crickets:0,ra
     } },
   voice(b,text){ if(!this.on||b.kind!=='person')return; const f=b.child?260:b.age>60?(b.dress?170:105):(b.dress?200:125); this.play('voice',b.pos,{f,syll:clamp(Math.round(text.length/9),2,7)}); },
   update(dt){ if(!this.on)return; const h=(clock.min/60)%24; const night=h>=20||h<5.5;
+    if(this.drone){ const T=performance.now(); const want=Math.floor(T/38000)%2; if(want!==this.droneChord){this.droneChord=want;const chords=[[110,164.81,220,329.63],[98,146.83,196,293.66]];this.drone.forEach(d=>d.o.frequency.setTargetAtTime(chords[want][d.i],this.ctx.currentTime,6));}
+      const inside=!(roomAtWorld(lot,ghost.x,ghost.z)==='yard'||roomAtWorld(lot,ghost.x,ghost.z)==='outside'); const base=(night?0.034:0.022)*(inside?1:0.7)*(1-ghost.presence*0.3);
+      this.drone.forEach(d=>d.g.gain.setTargetAtTime(base*(d.i<2?1:0.55),this.ctx.currentTime,2));
+      if(T>this.nextBell){this.bell();this.nextBell=T+20000+Math.random()*45000;} }
     const wind=0.05+0.05*Math.abs(Math.sin(performance.now()*0.00023))+(roomAtWorld(lot,ghost.x,ghost.z)==='outside'||roomAtWorld(lot,ghost.x,ghost.z)==='yard'?0.06:0);
     this.set('wind',wind); this.set('crickets',night&&(roomAtWorld(lot,ghost.x,ghost.z)==='yard'||roomAtWorld(lot,ghost.x,ghost.z)==='outside')?0.018:0);
     const radioOn=people.some(b=>!b.away&&b.cur&&b.pose==='sit'&&b.room()==='living'&&h>=18&&h<22); const R=lot.K.radio; const sp=this.spatial(R.center()); this.set('radio',radioOn?0.12*sp.vol:0,sp.pan);
