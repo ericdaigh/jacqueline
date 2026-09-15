@@ -1,3 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
 <title>Jacqueline</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300;1,9..144,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -105,7 +111,8 @@
   #b-up{right:110px;bottom:130px}#b-dn{right:110px;bottom:70px}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.sub,.o .line,.o button{opacity:1}}
 </style>
-
+</head>
+<body>
 <canvas id="c"></canvas>
 <div id="vig"></div>
 
@@ -591,7 +598,7 @@ class Prop{
     this.key=opts.key||null; this.state=Object.assign({},opts.state||{}); this.room=opts.room||null; this.hidden=!!opts.hidden; this.read=opts.read||null; this.clue=opts.clue||null;
     let g=model(def.W,def.H,def.D,gg=>def.b(gg,PC)); const rot=opts.rot||0; g=rotateGrid(g,rot); this.rot=rot;
     this.grid=g; this.s=def.s; this.size=[g.W*def.s,g.H*def.s,g.D*def.s];
-    let rg=g, rs=def.s; if(!def.wall&&g.W*g.H*g.D<=20000){rg=upscale(g,2);rs=def.s/2;if(ROUNDED.has(type))chamfer(rg);}
+    let rg=g, rs=def.s; const cells=g.W*g.H*g.D; if(!def.wall&&cells<=4000){rg=upscale(g,4);rs=def.s/4;if(ROUNDED.has(type)){chamfer(rg);chamfer(rg);}} else if(!def.wall&&cells<=20000){rg=upscale(g,2);rs=def.s/2;if(ROUNDED.has(type))chamfer(rg);}
     this.mesh=new THREE.Mesh(meshGrid(rg,rs,{tint:0.04}),MAT_IN); this.mesh.userData.prop=this;
     this.pos=opts.pos.clone(); this.home=opts.pos.clone(); this.mesh.position.copy(this.pos); this.mesh.visible=!this.hidden; scene.add(this.mesh);
     this.box=new THREE.Box3(); this.updateBox(); lot.props.push(this);
@@ -763,7 +770,7 @@ function humanParts(p){ // p: {h:14|10, pants, shirt, skin, hair, dress, long, a
   const HH=headH*2; // head at double resolution so a face can have two eyes, a nose and a mouth
   const head=model(8,HH,8,g=>{ g.box(0,0,0,8,HH,8,p.skin); g.box(0,HH-2,0,8,2,8,p.hair); g.box(0,2,0,8,HH-2,2,p.hair); g.box(0,HH-3,0,8,1,1,p.hair); if(p.long){g.box(0,0,0,2,HH,4,p.hair);g.box(6,0,0,2,HH,4,p.hair);} if(p.bun){g.box(2,HH-3,-0,4,3,1,p.hair);g.box(2,HH-4,0,4,4,1,p.hair);} if(!p.dress&&!p.long){g.box(0,HH-2,3,2,2,5,p.skin);g.box(0,HH-2,2,1,1,1,p.skin);}
     const ey=Math.floor(HH*0.58); g.set(2,ey,7,PC.black); g.set(5,ey,7,PC.black); g.set(2,ey+1,7,p.hair); g.set(5,ey+1,7,p.hair); g.box(3,ey-2,7,2,2,1,P('#c9987a')); g.box(2,Math.max(0,ey-4),7,4,1,1,P('#a8705c')); if(p.age>60){g.set(1,ey-1,7,P('#d8b39a'));g.set(6,ey-1,7,P('#d8b39a'));} });
-  return {legL:upscale(legL),legR:upscale(legR),body:upscale(body),head,legH,torsoH,headH,sk};
+  return {legL:upscale(legL,4),legR:upscale(legR,4),body:upscale(body,4),head:upscale(head,2),legH,torsoH,headH,sk};
 }
 function dogGrid(c){return model(4,6,9,g=>{g.box(0,2,1,4,3,6,c);g.box(0,0,1,1,2,1,c);g.box(3,0,1,1,2,1,c);g.box(0,0,6,1,2,1,c);g.box(3,0,6,1,2,1,c);g.box(0,3,7,4,3,2,c);g.box(1,5,8,2,1,1,PC.black);g.box(1,4,0,2,2,1,c);g.set(0,5,7,PC.black);g.set(3,5,7,PC.black);});}
 function catGrid(c){return model(3,4,7,g=>{g.box(0,1,1,3,2,5,c);g.box(0,0,1,1,1,1,c);g.box(2,0,1,1,1,1,c);g.box(0,0,5,1,1,1,c);g.box(2,0,5,1,1,1,c);g.box(0,2,5,3,2,2,c);g.set(0,3,6,PC.black);g.set(2,3,6,PC.black);g.box(1,2,0,1,2,1,c);});}
@@ -774,13 +781,13 @@ class Being{
     this.fear=0;this.state={};this.routine=o.routine||[];this.cur=null;this.path=null;this.pathI=0;this.target=null;this.speed=o.speed||1.3;
     if(o.parts){ const P_=o.parts, s=S8; this.mesh=new THREE.Group(); this.parts=P_;
       const mk=(g,tx,ty,tz,sc=s)=>{const geo=meshGrid(g,sc,{tint:0.03});geo.translate(tx,ty,tz);const m=new THREE.Mesh(geo,MAT_IN);m.userData.being=this;this.mesh.add(m);return m;};
-      chamfer(P_.body); chamfer(P_.head);
-      this.legL=mk(P_.legL,-2*s,-P_.legH*s,-1*s,s/2); this.legL.position.y=P_.legH*s;
-      this.legR=mk(P_.legR,0,-P_.legH*s,-1*s,s/2); this.legR.position.y=P_.legH*s;
-      this.body=mk(P_.body,-3*s,-P_.sk*s,-2*s,s/2); this.body.position.y=P_.legH*s;
-      this.head=mk(P_.head,-2*s,0,-2*s,s/2); this.head.position.y=(P_.legH+P_.torsoH)*s;
+      chamfer(P_.body);chamfer(P_.body); chamfer(P_.head);chamfer(P_.head); chamfer(P_.legL);chamfer(P_.legR);
+      this.legL=mk(P_.legL,-2*s,-P_.legH*s,-1*s,s/4); this.legL.position.y=P_.legH*s;
+      this.legR=mk(P_.legR,0,-P_.legH*s,-1*s,s/4); this.legR.position.y=P_.legH*s;
+      this.body=mk(P_.body,-3*s,-P_.sk*s,-2*s,s/4); this.body.position.y=P_.legH*s;
+      this.head=mk(P_.head,-2*s,0,-2*s,s/4); this.head.position.y=(P_.legH+P_.torsoH)*s;
       this.size=[6*s,(P_.legH+P_.torsoH+P_.headH)*s,4*s]; this.grid={W:6,H:P_.legH+P_.torsoH+P_.headH,D:4};
-    } else { this.grid=o.grid;const geo=meshGrid(this.grid,S8,{tint:0.03});geo.translate(-this.grid.W*S8/2,0,-this.grid.D*S8/2);this.mesh=new THREE.Mesh(geo,MAT_IN);this.mesh.userData.being=this; this.size=[this.grid.W*S8,this.grid.H*S8,this.grid.D*S8]; }
+    } else { this.grid=o.grid;const ug=upscale(this.grid,4);chamfer(ug);chamfer(ug);const geo=meshGrid(ug,S8/4,{tint:0.03});geo.translate(-this.grid.W*S8/2,0,-this.grid.D*S8/2);this.mesh=new THREE.Mesh(geo,MAT_IN);this.mesh.userData.being=this; this.size=[this.grid.W*S8,this.grid.H*S8,this.grid.D*S8]; }
     scene.add(this.mesh); this.legPhase=0; this.lookAt=null; this.lookGhost=-1;this.pos=new THREE.Vector3();this.yaw=0;this.busy=null;this.sayQ=[];this.lastSay=-999;this.pose='stand';this.away=false;this.alert=0;this.lastPathT=-1e9;
     (this.kind==='person'?people:pets).push(this);
   }
@@ -1267,7 +1274,7 @@ function startLeap(seed,opts={}){
   // lots: main at x=-16, neighbours at ±40
   for(const [ox,full] of [[-16,true],[-56,false],[24,false]]){const L=new Lot(ox,-16,SEED^(ox*7919),full);genHouse(L);lots.push(L);}
   buildTerrain(7);
-  for(const L of lots){ if(L.full){refine(L);L.mesh=new THREE.Mesh(meshGrid(L.gf,V/2,{tint:0.05,origin:[L.ox,L.oy,L.oz]}),MAT);} else L.mesh=new THREE.Mesh(meshGrid(L.g,V,{tint:0.05,origin:[L.ox,L.oy,L.oz]}),MAT);L.mesh.position.set(L.ox,L.oy,L.oz);scene.add(L.mesh);addGlass(L);}
+  for(const L of lots){ refine(L);L.mesh=new THREE.Mesh(meshGrid(L.gf,V/2,{tint:0.05,origin:[L.ox,L.oy,L.oz]}),MAT);L.mesh.position.set(L.ox,L.oy,L.oz);scene.add(L.mesh);addGlass(L);}
   lot=lots[0]; K=furnish(lot,null);
   for(const L of lots.slice(1)){const saveP=PC;PC=propColors(mulberry(L.seed));const gx=L.gateX;new Prop(L,'gate',{pos:L.world(gx-3,0,LD-4),room:'yard',name:'a gate',desc:''});new Prop(L,'mailbox',{pos:L.world(gx+5,0,LD-3),room:'yard',name:'a mailbox'});if(L.drive.x0+8<LW&&rng()<0.6)new Prop(L,'car',{pos:L.world(L.drive.x0+2,0,L.drive.z0+8),room:'yard',name:'a car'});PC=saveP;}
   story=SD.fn(lot,K,sr);
@@ -1438,3 +1445,5 @@ window.claude?.hot?.snapshot?.(()=>({seed:seedText}));
 if(window.claude?.hot?.ready)window.claude.hot.ready(boot); else boot();
 })();
 </script>
+</body>
+</html>
