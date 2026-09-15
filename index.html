@@ -106,7 +106,7 @@
 <div id="subs" class="hud"></div>
 <div id="hint" class="hud"></div>
 <div id="abil" class="hud"></div>
-<div id="time" class="hud"><button id="t-linger">Linger</button><button id="t-skip">Skip</button></div>
+<div id="time" class="hud"><button id="t-linger">Linger</button><button id="t-skip">Skip</button><button id="t-mute" title="M">Sound</button></div>
 
 <div id="touch">
   <div id="stick"><div id="knob"></div></div>
@@ -1114,15 +1114,18 @@ function applySky(){ const h=(clock.min/60)%24; let i=0; while(i<SKYK.length-2&&
 
 // ═══════════════════════════ INPUT ═══════════════════════════
 const keys={}; let paused=true, isTouch=matchMedia('(pointer:coarse)').matches; let attending=false;
-addEventListener('keydown',e=>{ if(paused)return; keys[e.code]=true; if(/^Digit[1-5]$/.test(e.code)){ghost.sel=+e.code[5]-1;renderAbil();} if(e.code==='KeyE'){if(ABIL[ghost.sel].id==='attend')attending=true;else if(!e.repeat)useAbility();} if(e.code==='KeyJ'){toggleJournal();} if(e.code==='KeyQ')setSpeed('linger'); if(e.code==='KeyR')setSpeed('skip'); if(e.code==='Space')e.preventDefault(); });
+addEventListener('keydown',e=>{ if(paused)return; keys[e.code]=true; if(/^Digit[1-5]$/.test(e.code)){ghost.sel=+e.code[5]-1;renderAbil();} if(e.code==='KeyE'){if(ABIL[ghost.sel].id==='attend')attending=true;else if(!e.repeat)useAbility();} if(e.code==='KeyJ'){toggleJournal();} if(e.code==='KeyM'){AU.toggleMute();} if(e.code==='Tab'){e.preventDefault();freeCursor();} if(e.code==='KeyQ')setSpeed('linger'); if(e.code==='KeyR')setSpeed('skip'); if(e.code==='Space')e.preventDefault(); });
 addEventListener('keyup',e=>{keys[e.code]=false; if(e.code==='KeyE'){attending=false;ghost.charging=0;$('ring').style.opacity=0;} if(e.code==='KeyQ'||e.code==='KeyR')setSpeed('normal');});
 canvas.addEventListener('mousedown',e=>{ if(isTouch)return; if(document.pointerLockElement!==canvas){if(!paused)canvas.requestPointerLock();return;} if(e.button===0){if(ABIL[ghost.sel].id==='attend')attending=true;else useAbility();} if(e.button===2){ghost.sel=0;renderAbil();attending=true;} });
 addEventListener('mouseup',()=>{attending=false;ghost.charging=0;$('ring').style.opacity=0;});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('mousemove',e=>{ if(document.pointerLockElement!==canvas)return; ghost.yaw-=e.movementX*0.0022; ghost.pitch=clamp(ghost.pitch-e.movementY*0.0022,-1.5,1.5); });
 addEventListener('wheel',e=>{ if(paused)return; ghost.sel=(ghost.sel+(e.deltaY>0?1:-1)+ABIL.length)%ABIL.length; renderAbil(); },{passive:true});
-document.addEventListener('pointerlockchange',()=>{ if(document.pointerLockElement===canvas){setPaused(false);} else if(!isTouch&&!overlayBusy){showPause();} });
+let cursorFree=false;
+function freeCursor(){ if(document.pointerLockElement===canvas){cursorFree=true;document.exitPointerLock();sys('Cursor free. Click the world to look again.');} }
+document.addEventListener('pointerlockchange',()=>{ if(document.pointerLockElement===canvas){cursorFree=false;setPaused(false);} else if(cursorFree){/* stay unpaused, cursor visible */} else if(!isTouch&&!overlayBusy){showPause();} });
 function setSpeed(m){clock.mode=m;clock.speed=m==='linger'?0.2:m==='skip'?10:1;$('t-linger').classList.toggle('on',m==='linger');$('t-skip').classList.toggle('on',m==='skip');}
+$('t-mute').addEventListener('pointerdown',()=>{AU.init();AU.toggleMute();});
 $('t-linger').addEventListener('pointerdown',()=>setSpeed(clock.mode==='linger'?'normal':'linger'));$('t-skip').addEventListener('pointerdown',()=>setSpeed(clock.mode==='skip'?'normal':'skip'));
 function toggleJournal(){const j=$('journal');j.hidden=!j.hidden; if(!j.hidden){document.exitPointerLock&&document.exitPointerLock();overlayBusy=true;} else {overlayBusy=false;if(!isTouch)canvas.requestPointerLock();}}
 $('jbtn').addEventListener('click',toggleJournal);$('jclose').addEventListener('click',toggleJournal);
@@ -1144,7 +1147,7 @@ let overlayBusy=false, seedText='';
 function showOverlay(html,after){const ov=$('overlay');ov.hidden=false;ov.classList.remove('fade');$('ocontent').innerHTML=html;paused=true;overlayBusy=true;const lines=[...ov.querySelectorAll('.line, button')];lines.forEach((l,i)=>setTimeout(()=>l.classList.add('in'),400+i*900));if(after)after();}
 function hideOverlay(){const ov=$('overlay');ov.classList.add('fade');setTimeout(()=>{ov.hidden=true;},1200);overlayBusy=false;}
 function setPaused(p){paused=p;}
-function showPause(){ showOverlay(`<h1>Jacqueline</h1><p class="line">Seed <span class="seed"><input id="seedin" value="${seedText}"></span></p><div class="row"><button class="primary" id="resume">Return</button><button id="newleap">New leap</button></div>`);
+function showPause(){ showOverlay(`<h1>Jacqueline</h1><p class="line">Seed <span class="seed"><input id="seedin" value="${seedText}"></span></p><p class="seed line" style="line-height:1.8">WASD drift · Space up · C down · hold E attend · 1–5 abilities · Q linger · R skip · J journal · M mute · Tab free cursor · Esc pause</p><div class="row"><button class="primary" id="resume">Return</button><button id="newleap">New leap</button></div>`);
   $('resume').onclick=()=>{AU.init();const s=$('seedin').value.trim();if(s!==seedText){startLeap(s);return;}hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();};
   $('newleap').onclick=()=>startLeap(Math.random().toString(36).slice(2,8)); }
 const FRAGS=['You remember a lake in winter, and that you were not cold.','You remember a name being called from a porch. Not yours.','You remember the smell of a radio tube warming.','You remember a hand on a doorframe, deciding.','You remember that you were late for something, and then that it did not matter.','You remember a dog that would not stop looking at the corner of a room.','You remember a letter you did not send.','You remember the sound a gate makes.'];
@@ -1174,7 +1177,7 @@ function startLeap(seed){
   if(wakeRoom==='yard'){ghost.x=lot.ox+lot.gateX*V;ghost.z=lot.oz+(LD-14)*V;ghost.yaw=Math.PI;}
   renderClues();renderCast();renderAbil();renderFrag(); try{$('hypo').value=localStorage.getItem('jq:hypo:'+seedText)||'';}catch(e){}
   const dow=DOW[1], month=era.months[Math.floor(sr()*era.months.length)], dayn=14;
-  showOverlay(`<h1>Jacqueline</h1><p class="line">You are somewhere.</p><p class="line">${story.wake[0]}</p><p class="line">${story.wake[1]}</p><p class="line spec">It is ${dow}, ${month} ${dayn}, ${era.year}. You are fairly sure you are dead.</p><button class="primary" id="open">Open your eyes</button><p class="seed line">seed <input id="seedin" value="${seedText}" autocomplete="off" spellcheck="false"> <button id="reseed" class="quiet" style="opacity:1;padding:6px 10px;font-size:10px">go</button></p>`);
+  showOverlay(`<h1>Jacqueline</h1><p class="line">You are somewhere.</p><p class="line">${story.wake[0]}</p><p class="line">${story.wake[1]}</p><p class="line spec">It is ${dow}, ${month} ${dayn}, ${era.year}. You are fairly sure you are dead.</p><button class="primary" id="open">Open your eyes</button><p class="seed line">seed <input id="seedin" value="${seedText}" autocomplete="off" spellcheck="false"> <button id="reseed" class="quiet" style="opacity:1;padding:6px 10px;font-size:10px">go</button></p>${isTouch?'':'<p class="seed line" style="line-height:1.8">WASD drift · Space up · C down · hold E attend · 1–5 abilities · Q linger · R skip · J journal · M mute · Tab free cursor · Esc pause</p>'}`);
   $('open').onclick=()=>{AU.init();hideOverlay();setPaused(false);if(!isTouch)canvas.requestPointerLock();setTimeout(()=>sys('Move. Slowly at first. Something is carrying you.'),1500);setTimeout(()=>sys('Look closely at things. Hold E. Your journal is J.'),9000);};
   const reseed=()=>{const v=$('seedin').value.trim();if(v&&v!==seedText)startLeap(v);}; $('reseed').onclick=reseed; $('seedin').addEventListener('keydown',e=>{if(e.key==='Enter')reseed();});
   hingeDone=false;
@@ -1190,12 +1193,12 @@ function fireHinge(){
 
 // ═══════════════════════════ AUDIO (all synthesized, Web Audio) ═══════════════════════════
 const AU={ctx:null,on:false,loops:{},
-  init(){ if(this.ctx){this.ctx.resume();return;} try{const C=window.AudioContext||window.webkitAudioContext;this.ctx=new C();}catch(e){return;} const c=this.ctx;
+  init(){ try{this.muted=localStorage.getItem('jq:muted')==='1';$('t-mute').classList.toggle('on',this.muted);}catch(e){} if(this.ctx){this.ctx.resume();return;} try{const C=window.AudioContext||window.webkitAudioContext;this.ctx=new C();}catch(e){return;} const c=this.ctx;
     this.master=c.createGain();this.master.gain.value=0.6;this.master.connect(c.destination);
     const len=c.sampleRate*2;const buf=c.createBuffer(1,len,c.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;this.noise=buf;
     // wind: lowpassed noise, slow LFO on gain
     this.loops.wind=this.loop({type:'noise',filter:['lowpass',380,0.7],gain:0.0});
-    this.loops.crickets=this.loop({type:'noise',filter:['bandpass',4200,12],gain:0.0,pulse:9});
+    this.loops.crickets=this.loop({type:'noise',filter:['bandpass',2600,4],gain:0.0,pulse:7});
     this.loops.radio=this.loop({type:'noise',filter:['bandpass',1100,3],gain:0.0,tune:true});
     this.loops.hum=this.loop({type:'osc',freq:52,gain:0.0});
     this.on=true; },
@@ -1228,11 +1231,12 @@ const AU={ctx:null,on:false,loops:{},
   voice(b,text){ if(!this.on||b.kind!=='person')return; const f=b.child?260:b.age>60?(b.dress?170:105):(b.dress?200:125); this.play('voice',b.pos,{f,syll:clamp(Math.round(text.length/9),2,7)}); },
   update(dt){ if(!this.on)return; const h=(clock.min/60)%24; const night=h>=20||h<5.5;
     const wind=0.05+0.05*Math.abs(Math.sin(performance.now()*0.00023))+(roomAtWorld(lot,ghost.x,ghost.z)==='outside'||roomAtWorld(lot,ghost.x,ghost.z)==='yard'?0.06:0);
-    this.set('wind',wind); this.set('crickets',night&&(roomAtWorld(lot,ghost.x,ghost.z)==='yard'||roomAtWorld(lot,ghost.x,ghost.z)==='outside')?0.05:night?0.012:0);
+    this.set('wind',wind); this.set('crickets',night&&(roomAtWorld(lot,ghost.x,ghost.z)==='yard'||roomAtWorld(lot,ghost.x,ghost.z)==='outside')?0.018:0);
     const radioOn=people.some(b=>!b.away&&b.cur&&b.pose==='sit'&&b.room()==='living'&&h>=18&&h<22); const R=lot.K.radio; const sp=this.spatial(R.center()); this.set('radio',radioOn?0.12*sp.vol:0,sp.pan);
     if(radioOn&&this.loops.radio.o.osc){const seq=[262,330,392,330,294,349,392,440];const idx=Math.floor(performance.now()/380)%seq.length;this.loops.radio.o.osc.frequency.setTargetAtTime(seq[idx],this.ctx.currentTime,0.05);}
     const fr=lot.K.fridge; const sf=this.spatial(fr.center()); this.set('hum',0.05*sf.vol,sf.pan);
-    if(this.master)this.master.gain.setTargetAtTime(clock.mode==='skip'?0.15:0.6,this.ctx.currentTime,0.2); },
+    if(this.master)this.master.gain.setTargetAtTime(this.muted?0:(clock.mode==='skip'?0.15:0.6),this.ctx.currentTime,0.2); },
+  toggleMute(){ this.muted=!this.muted; try{localStorage.setItem('jq:muted',this.muted?'1':'0');}catch(e){} sys(this.muted?'Sound off (M).':'Sound on.'); $('t-mute').classList.toggle('on',this.muted); },
   set(name,v,pan){ const L=this.loops[name]; if(!L)return; L.g.gain.setTargetAtTime(v,this.ctx.currentTime,0.4); if(pan!==undefined)L.pan.pan.setTargetAtTime(pan,this.ctx.currentTime,0.2); },
 };
 
